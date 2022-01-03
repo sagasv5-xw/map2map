@@ -1,19 +1,13 @@
 from math import log2
-import numpy as np
 import torch
 import torch.nn as nn
 
 from .narrow import narrow_by
 from .resample import Resampler, Resampler2
-from .style import ConvStyled3d, LeakyReLUStyled, LeakyReLUStyled2
+from .style import ConvStyled3d, LeakyReLUStyled
 from .styled_conv import ResStyledBlock
 from .lag2eul import lag2eul
 
-class mySequential(nn.Sequential):
-    def forward(self, *input):
-        for module in self._modules.values():
-            input = module(*input)
-        return input
 
 
 class G(nn.Module):
@@ -41,23 +35,21 @@ class G(nn.Module):
 
         self.blocks = nn.ModuleList()
         for b in range(num_blocks):
-            prev_chan, next_chan = chan(b), chan(b+1)
+            prev_chan, next_chan = chan(b), chan(b + 1)
             self.blocks.append(
                 HBlock(prev_chan, next_chan, out_chan, cat_noise))
 
     def forward(self, x, style):
         s = style
-        y = x# direct upsampling from the input
+        y = x  # direct upsampling from the input
 
         x = self.block0((x, s))
 
-        #y = None  # no direct upsampling from the input
+        # y = None  # no direct upsampling from the input
         for block in self.blocks:
             x, y = block(x, y)
 
         return y
-
-
 
 
 class HBlock(nn.Module):
@@ -86,6 +78,7 @@ class HBlock(nn.Module):
     -----
     next_size = 2 * prev_size - 6
     """
+
     def __init__(self, prev_chan, next_chan, out_chan, cat_noise):
         super().__init__()
 
@@ -129,6 +122,7 @@ class AddNoise(nn.Module):
     The number of channels `chan` should be 1 (StyleGAN2)
     or that of the input (StyleGAN).
     """
+
     def __init__(self, cat, chan=1):
         super().__init__()
 
@@ -173,14 +167,15 @@ class D(nn.Module):
             return c
 
         self.block0 = nn.Sequential(
-            ConvStyled3d(in_chan+1, chan(num_blocks), self.style_size ,1),
+            ConvStyled3d(in_chan + 1, chan(num_blocks), self.style_size, 1),
             LeakyReLUStyled(0.2, True),
         )
 
         self.blocks = nn.ModuleList()
         for b in reversed(range(num_blocks)):
-            prev_chan, next_chan = chan(b+1), chan(b)
-            self.blocks.append(ResStyledBlock(in_chan=prev_chan, out_chan=next_chan, style_size = style_size, seq='CACA', last_act=False))
+            prev_chan, next_chan = chan(b + 1), chan(b)
+            self.blocks.append(ResStyledBlock(in_chan=prev_chan, out_chan=next_chan, style_size=style_size, seq='CACA',
+                                              last_act=False))
             self.blocks.append(Resampler2(3, 0.5))
 
         self.block9 = nn.Sequential(
@@ -193,20 +188,17 @@ class D(nn.Module):
         s = style
         rs = torch.clone(s).cpu().numpy()
 
-        lag_x = x[:,:3]
+        lag_x = x[:, :3]
         eul_x = lag2eul(lag_x, z=int(rs))[0]
 
-        x = torch.cat([eul_x,x], dim=1)
-
+        x = torch.cat([eul_x, x], dim=1)
 
         x = self.block0((x, s))
 
         for block in self.blocks:
             x = block((x, s))
-        print(x.shape, s.shape,'shape before block9')
+        print(x.shape, s.shape, 'shape before block9')
         x = self.block9((x, s))
         x = self.block10((x, s))
 
         return x
-
-
