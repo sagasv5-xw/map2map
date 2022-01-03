@@ -130,14 +130,19 @@ class ConvStyled3d(nn.Module):
         else:
             self.register_parameter('bias', None)
 
-    def forward(self, x, style=s, eps=1e-8):
+    def forward(self, inputs):
+        x, s = inputs[0], inputs[1]
+        eps=1e-8
+        print(x.shape, s.shape)
         N, Cin, *DHWin = x.shape
+        print(Cin)
         C0, C1, *K3 = self.weight.shape
+        print(C0, C1, *K3,'weight shape')
         if self.resample == 'U':
             Cin, Cout = C0, C1
         else:
             Cout, Cin = C0, C1
-
+        print(Cin,'Cin1')
         s = F.linear(s, self.style_weight, bias=self.style_bias)
 
         # modulation
@@ -146,7 +151,7 @@ class ConvStyled3d(nn.Module):
         else:
             s = s.reshape(N, 1, Cin, 1, 1, 1)
         w = self.weight * s
-
+        print(Cin,'Cin2')
         # demodulation
         if self.resample == 'U':
             fan_in_dim = (1, 3, 4, 5)
@@ -155,10 +160,15 @@ class ConvStyled3d(nn.Module):
         w = w * torch.rsqrt(w.pow(2).sum(dim=fan_in_dim, keepdim=True) + eps)
 
         w = w.reshape(N * C0, C1, *K3)
+        print(N, Cin, *DHWin)
         x = x.reshape(1, N * Cin, *DHWin)
         x = self.conv(x, w, bias=self.bias, stride=self.stride, groups=N)
         _, _, *DHWout = x.shape
-        x = x.reshape(N, Cout, *DHWout)
+        print('N',N,'Cout',Cout,'DHWout',*DHWout)
+        #x = x.reshape(N, Cout, *DHWout)
+        print(x.shape)
+        x = x.view(N, Cout, *DHWout)
+        print(x.shape)
 
         return x
 
@@ -167,15 +177,29 @@ class BatchNormStyled3d(nn.BatchNorm3d) :
 
     for style array that is not used
     """
-    def forward(self, x, style=s):
+    def forward(self, x, style):
         return super().forward(x)
 
 class LeakyReLUStyled(nn.LeakyReLU):
+    def __init__(self, negative_slope=1e-2, inplace=False):
+        super().__init__(negative_slope, inplace)
     """ Trivially evaluates standard leaky ReLU, but accepts second argument
 
     for style array that is not used
     """
-    def __init__(self, negative_slope, inplace):
-        super().__init__(negative_slope, inplace)
-    def forward(self, x, style=s):
+    def forward(self, x, style=None):
         return super().forward(x)
+
+
+
+class LeakyReLUStyled2(nn.LeakyReLU):
+    def __init__(self, negative_slope=1e-2, inplace=False):
+        super().__init__(negative_slope, inplace)
+    """ Trivially evaluates standard leaky ReLU, but accepts second argument
+
+    for style array that is not used
+    """
+    def forward(self, inputs):
+        x = inputs[0]
+        return super().forward(x)
+

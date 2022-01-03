@@ -133,7 +133,7 @@ def gpu_worker(local_rank, node, args):
     args.style_size = train_dataset.style_size
 
     model = import_attr(args.model, models, callback_at=args.callback_at)
-    model = model(sum(args.in_chan), sum(args.out_chan), style_size=style_size,
+    model = model(sum(args.in_chan), sum(args.out_chan), style_size=args.style_size,
                   scale_factor=args.scale_factor, **args.misc_kwargs)
     model.to(device)
     model = DistributedDataParallel(model, device_ids=[device],
@@ -161,7 +161,7 @@ def gpu_worker(local_rank, node, args):
             sum(args.in_chan + args.out_chan) if args.cgan
                 else sum(args.out_chan),
             1,
-            style_size=style_size,
+            style_size=args.style_size,
             scale_factor=args.scale_factor,
             **args.misc_kwargs,
         )
@@ -340,8 +340,9 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
         input = input.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
         style = style.to(device, non_blocking=True)
-
-        output = model(input, style=style)
+        
+        print(input.shape, style.shape)
+        output = model(input, style)
         if batch <= 5 and rank == 0:
             print('##### batch :', batch)
             print('input shape :', input.shape)

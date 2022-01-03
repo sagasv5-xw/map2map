@@ -79,7 +79,7 @@ class FieldDataset(Dataset):
             self.style_files = sorted(glob(style_pattern))
             if len(self.style_files) != len(self.in_files):
                 raise ValueError('number of style and input files do not match')
-            self.style_size = np.loadtxt(self.style_files[0]).shape[0]
+            self.style_size = np.load(self.style_files[0]).shape[0]
 
         if in_norms is not None and len(in_patterns) != len(in_norms):
             raise ValueError('numbers of input normalization functions and fields do not match')
@@ -205,7 +205,7 @@ class FieldDataset(Dataset):
 
         style = torch.empty(0, dtype=torch.float32)
         if self.style:
-            style = np.loadtxt(self.style_files[ifile])
+            style = np.load(self.style_files[ifile])
             style = torch.from_numpy(style.astype(np.float32))
 
         if self.in_norms is not None:

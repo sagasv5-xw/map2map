@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from .narrow import narrow_like
-from .style import ConvStyled3d, BatchNormStyled3d, LeakyReLUStyled
+from .style import ConvStyled3d, BatchNormStyled3d, LeakyReLUStyled, LeakyReLUStyled2
 
 
 class ConvStyledBlock(nn.Module):
@@ -42,20 +42,20 @@ class ConvStyledBlock(nn.Module):
     def _get_layer(self, l):
         if l == 'U':
             in_chan, out_chan = self._setup_conv()
-            return ConvStyled3d(in_chan, out_chan, style_size=self.style_size, 2, stride=2,
+            return ConvStyled3d(in_chan, out_chan, self.style_size, 2, stride=2,
                                 resample = 'U')
         elif l == 'D':
             in_chan, out_chan = self._setup_conv()
-            return ConvStyled3d(in_chan, out_chan, style_size=self.style_size, 2, stride=2,
+            return ConvStyled3d(in_chan, out_chan, self.style_size, 2, stride=2,
                                 resample = 'D')
         elif l == 'C':
             in_chan, out_chan = self._setup_conv()
-            return ConvStyled3d(in_chan, out_chan, style_size=self.style_size, self.kernel_size,
+            return ConvStyled3d(in_chan, out_chan, self.style_size, self.kernel_size,
                                 stride=self.stride)
         elif l == 'B':
             return BatchNormStyled3d(self.norm_chan)
         elif l == 'A':
-            return LeakyReLUStyled()
+            return LeakyReLUStyled2()
         else:
             raise ValueError('layer type {} not supported'.format(l))
 
@@ -72,7 +72,8 @@ class ConvStyledBlock(nn.Module):
 
         return in_chan, out_chan
 
-    def forward(self, x, style=s):
+    def forward(self, x, style):
+        s = style
         for l in self.convs:
             x = l(x, s)
         return x
@@ -118,20 +119,22 @@ class ResStyledBlock(ConvStyledBlock):
         if out_chan is None:
             self.skip = None
         else:
-            self.skip = ConvStyled3d(in_chan, out_chan, style_size=style_size, 1)
+            self.skip = ConvStyled3d(in_chan, out_chan, style_size, 1)
 
         if 'U' in seq or 'D' in seq:
             raise NotImplementedError('upsample and downsample layers '
                     'not supported yet')
 
-    def forward(self, x, style=s):
+    def forward(self, inputs):
+        x, s = inputs[0], inputs[1]
+        #s = style
         y = x
 
         if self.skip is not None:
-            y = self.skip(y, s)
+            y = self.skip((y, s))
 
         for l in self.convs:
-            x = l(x, s)
+            x = l((x, s))
 
         y = narrow_like(y, x)
         x += y
