@@ -4,6 +4,20 @@ import torch
 from ..data.norms.cosmology import D
 
 
+
+
+def pixel_shuffle_3d_inv(x, r):
+    """
+    Rearranges tensor x with shape ``[B,C,H,W,D]`` 
+    to a tensor of shape ``[B,C*r*r*r,H/r,W/r,D/r]``.
+    """
+    [B, C, H, W, D] = list(x.size())
+    x = x.contiguous().view(B, C, H//r, r, W//r, r, D//r, r)
+    x = x.permute(0, 1, 3, 5, 7, 2, 4, 6)
+    x = x.contiguous().view(B, C*(r**3), H//r, W//r, D//r)
+    return x
+
+
 def lag2eul(
         dis,
         val=1.0,
@@ -13,11 +27,10 @@ def lag2eul(
         periodic=False,
         z=0.0,
         dis_std=6.0,
-        boxsize=1000.,
+        boxsize=100.,
         meshsize=512,
         **kwargs):
     """Transform fields from Lagrangian description to Eulerian description
-    ###fixme meshsize should be 2 times higher than the original size
 
     Only works for 3d fields, output same mesh size as input.
 
@@ -129,6 +142,11 @@ def lag2eul(
                 src = src[:, mask]
 
             mesh[n].view(C, -1).index_add_(1, ind, src)
+        
+        if eul_scale_factor > 1:
+            print(mesh.shape,'before shuffle')
+            mesh = pixel_shuffle_3d_inv(mesh, eul_scale_factor)
+            print(mesh.shape,'after shuffle')
 
         out.append(mesh)
 
