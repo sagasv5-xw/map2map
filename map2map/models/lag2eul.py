@@ -7,7 +7,7 @@ from ..data.norms.cosmology import D
 def lag2eul(
         dis,
         val=1.0,
-        eul_scale_factor=1,
+        eul_scale_factor=2,
         eul_pad=0,
         rm_dis_mean=True,
         periodic=False,
@@ -17,6 +17,7 @@ def lag2eul(
         meshsize=512,
         **kwargs):
     """Transform fields from Lagrangian description to Eulerian description
+    ###fixme meshsize should be 2 times higher than the original size
 
     Only works for 3d fields, output same mesh size as input.
 
