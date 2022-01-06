@@ -86,8 +86,7 @@ class FieldDataset(Dataset):
         self.style_size = 0
         if self.style:
             style_files = sorted(glob(style_pattern))
-            for p in style_files:
-                random.Random(local_random_seed).shuffle(p)
+            random.Random(local_random_seed).shuffle(style_files)
             self.style_files = style_files
             if len(self.style_files) != len(self.in_files):
                 raise ValueError('number of style and input files do not match')
