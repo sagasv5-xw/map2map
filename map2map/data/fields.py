@@ -50,18 +50,21 @@ class FieldDataset(Dataset):
                  crop=None, crop_start=None, crop_stop=None, crop_step=None,
                  in_pad=0, tgt_pad=0, scale_factor=1,
                  **kwargs):
-
+        #you can adjust the random seed to randomize the in pattern sequence
         local_random_seed = 42
 
         in_file_lists = [sorted(glob(p)) for p in in_patterns]
         print(in_file_lists,'before shuffle')
-        random.Random(local_random_seed).shuffle(in_file_lists)
+        for p in in_file_lists:
+            random.Random(local_random_seed).shuffle(p)
+
         print(in_file_lists,'in file list')
         self.in_files = list(zip(* in_file_lists))
 
         tgt_file_lists = [sorted(glob(p)) for p in tgt_patterns]
         print(tgt_file_lists,'before shuffle')
-        random.Random(local_random_seed).shuffle(tgt_file_lists)
+        for p in tgt_file_lists:
+            random.Random(local_random_seed).shuffle(p)
         print(tgt_file_lists)
         self.tgt_files = list(zip(* tgt_file_lists))
 
