@@ -54,11 +54,13 @@ class FieldDataset(Dataset):
         local_random_seed = 42
 
         in_file_lists = [sorted(glob(p)) for p in in_patterns]
+        print(in_file_lists,'before shuffle')
         random.Random(local_random_seed).shuffle(in_file_lists)
         print(in_file_lists,'in file list')
         self.in_files = list(zip(* in_file_lists))
 
         tgt_file_lists = [sorted(glob(p)) for p in tgt_patterns]
+        print(tgt_file_lists,'before shuffle')
         random.Random(local_random_seed).shuffle(tgt_file_lists)
         print(tgt_file_lists)
         self.tgt_files = list(zip(* tgt_file_lists))
