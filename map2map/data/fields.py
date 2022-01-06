@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
+import random
 
 from ..utils import import_attr
 from . import norms
@@ -50,10 +51,16 @@ class FieldDataset(Dataset):
                  in_pad=0, tgt_pad=0, scale_factor=1,
                  **kwargs):
 
+        local_random_seed = 42
+
         in_file_lists = [sorted(glob(p)) for p in in_patterns]
+        random.Random(local_random_seed).shuffle(in_file_lists)
+        print(in_file_lists,'in file list')
         self.in_files = list(zip(* in_file_lists))
 
         tgt_file_lists = [sorted(glob(p)) for p in tgt_patterns]
+        random.Random(local_random_seed).shuffle(tgt_file_lists)
+        print(tgt_file_lists)
         self.tgt_files = list(zip(* tgt_file_lists))
 
         if len(self.in_files) != len(self.tgt_files):
