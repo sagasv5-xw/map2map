@@ -9,11 +9,6 @@ from .style import ConvStyled3d, LeakyReLUStyled, LeakyReLUStyled2
 from .styled_conv import ResStyledBlock
 from .lag2eul import lag2eul
 
-class mySequential(nn.Sequential):
-    def forward(self, *input):
-        for module in self._modules.values():
-            input = module(*input)
-        return input
 
 
 class G(nn.Module):
