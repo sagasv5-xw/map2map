@@ -56,11 +56,13 @@ class FieldDataset(Dataset):
         in_file_lists = [sorted(glob(p)) for p in in_patterns]
         for p in in_file_lists:
             random.Random(local_random_seed).shuffle(p)
+        print(in_file_lists)
         self.in_files = list(zip(* in_file_lists))
 
         tgt_file_lists = [sorted(glob(p)) for p in tgt_patterns]
         for p in tgt_file_lists:
             random.Random(local_random_seed).shuffle(p)
+        print(tgt_file_lists)
         self.tgt_files = list(zip(* tgt_file_lists))
 
         if len(self.in_files) != len(self.tgt_files):
