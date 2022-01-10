@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from .narrow import narrow_by
 from .resample import Resampler, Resampler2
-from .style import ConvStyled3d, LeakyReLUStyled, LeakyReLUStyled2
+from .style import ConvStyled3d, LeakyReLUStyled
 from .styled_conv import ResStyledBlock
 from .lag2eul import lag2eul
 
@@ -103,7 +103,7 @@ class HBlock(nn.Module):
         )
 
         self.proj = nn.Sequential(
-            nn.Conv3d(next_chan, out_chan, 1),
+            nn.Conv3d(next_chan + int(cat_noise), out_chan, 1),
             nn.LeakyReLU(0.2, True),
         )
 
