@@ -2,8 +2,8 @@ import numpy as np
 from scipy.special import hyp2f1
 
 
-def dis(x, undo=False, z=0.0, dis_std=6.0, **kwargs):
-    dis_norm = dis_std * D(z)  # [Mpc/h]
+def dis(x, undo=False, z=0.0, dis_std=6000.0, **kwargs):
+    dis_norm = dis_std * D(z)  # [Kpc/h]
 
     if not undo:
         dis_norm = 1 / dis_norm
