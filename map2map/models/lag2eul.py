@@ -99,11 +99,11 @@ def lag2eul(
         pos = (d - d_mean) * dis_norm
         del d
 
-        pos[:, 0] += torch.arange(0.5, DHW[0] - 2 * eul_pad, eul_scale_factor,
+        pos[:, 0] += torch.arange(0, DHW[0] - 2 * eul_pad, eul_scale_factor,
                                   dtype=dtype, device=device)[:, None, None]
-        pos[:, 1] += torch.arange(0.5, DHW[1] - 2 * eul_pad, eul_scale_factor,
+        pos[:, 1] += torch.arange(0, DHW[1] - 2 * eul_pad, eul_scale_factor,
                                   dtype=dtype, device=device)[:, None]
-        pos[:, 2] += torch.arange(0.5, DHW[2] - 2 * eul_pad, eul_scale_factor,
+        pos[:, 2] += torch.arange(0, DHW[2] - 2 * eul_pad, eul_scale_factor,
                                   dtype=dtype, device=device)
 
         pos = pos.contiguous().view(N, 3, -1, 1)  # last axis for neighbors
