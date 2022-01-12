@@ -209,13 +209,13 @@ class FieldDataset(Dataset):
             style = torch.from_numpy(style.astype(np.float32))
 
         if self.in_norms is not None:
-            for norm, x in zip(self.in_norms, in_fields):
+            for norm, x, s in zip(self.in_norms, in_fields, style):
                 norm = import_attr(norm, norms, callback_at=self.callback_at)
-                norm(x, **self.kwargs)
+                norm(x, z=s.cpu().numpy()[0], **self.kwargs)
         if self.tgt_norms is not None:
-            for norm, x in zip(self.tgt_norms, tgt_fields):
+            for norm, x, s in zip(self.tgt_norms, tgt_fields, style):
                 norm = import_attr(norm, norms, callback_at=self.callback_at)
-                norm(x, **self.kwargs)
+                norm(x, z=s.cpu().numpy()[0], **self.kwargs)
 
         if self.augment:
             flip_axes = flip(in_fields, None, self.ndim)
