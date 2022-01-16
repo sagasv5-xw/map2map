@@ -3,6 +3,7 @@ from scipy.special import hyp2f1
 
 
 def dis(x, undo=False, z=0.0, dis_std=6000.0, **kwargs):
+    print('------------------redshift--------------------', z)
     dis_norm = dis_std * D(z)  # [Kpc/h]
 
     if not undo:
@@ -11,6 +12,7 @@ def dis(x, undo=False, z=0.0, dis_std=6000.0, **kwargs):
     x *= dis_norm
 
 def vel(x, undo=False, z=0.0, dis_std=6.0, **kwargs):
+    print('------------------redshift--------------------', z)
     vel_norm = dis_std * D(z) * H(z) * f(z) / (1 + z)  # [km/s]
 
     if not undo:
