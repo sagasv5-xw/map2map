@@ -103,7 +103,7 @@ class HBlock(nn.Module):
         )
 
         self.proj = nn.Sequential(
-            nn.Conv3d(next_chan + int(cat_noise), out_chan, 1),
+            nn.Conv3d(next_chan, out_chan, 1),
             nn.LeakyReLU(0.2, True),
         )
 
