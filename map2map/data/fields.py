@@ -54,13 +54,13 @@ class FieldDataset(Dataset):
         local_random_seed = 42
 
         in_file_lists = [sorted(glob(p)) for p in in_patterns]
-        for p in in_file_lists:
-            random.Random(local_random_seed).shuffle(p)
+        # for p in in_file_lists:
+        #     random.Random(local_random_seed).shuffle(p)
         self.in_files = list(zip(* in_file_lists))
 
         tgt_file_lists = [sorted(glob(p)) for p in tgt_patterns]
-        for p in tgt_file_lists:
-            random.Random(local_random_seed).shuffle(p)
+        # for p in tgt_file_lists:
+        #     random.Random(local_random_seed).shuffle(p)
         self.tgt_files = list(zip(* tgt_file_lists))
 
         if len(self.in_files) != len(self.tgt_files):
@@ -84,7 +84,7 @@ class FieldDataset(Dataset):
         self.style_size = 0
         if self.style:
             style_files = sorted(glob(style_pattern))
-            random.Random(local_random_seed).shuffle(style_files)
+            # random.Random(local_random_seed).shuffle(style_files)
             self.style_files = style_files
             if len(self.style_files) != len(self.in_files):
                 raise ValueError('number of style and input files do not match')
