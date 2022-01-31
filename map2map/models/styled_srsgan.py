@@ -198,6 +198,7 @@ class D(nn.Module):
 
         lag_x = x[:, :3]
         print(rs,'---------rs----------')
+        rs = np.float(rs)
         eul_x = lag2eul(lag_x, z=float(rs))[0]
 
         x = torch.cat([eul_x, x], dim=1)
