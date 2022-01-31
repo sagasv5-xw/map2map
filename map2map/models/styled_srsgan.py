@@ -194,11 +194,11 @@ class D(nn.Module):
 
     def forward(self, x, style):
         s = style
-        rs = torch.clone(s).cpu().numpy()
+        rs = torch.clone(s).cpu().numpy()[0]
 
         lag_x = x[:, :3]
 
-        eul_x = lag2eul(lag_x, z=int(rs))[0]
+        eul_x = lag2eul(lag_x, z=float(rs))[0]
 
         x = torch.cat([eul_x, x], dim=1)
 
