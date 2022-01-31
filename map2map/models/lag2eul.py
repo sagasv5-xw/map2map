@@ -26,7 +26,7 @@ def lag2eul(
         rm_dis_mean=True,
         periodic=False,
         z=0.0,
-        dis_std=6.0,
+        dis_std=6000.0,
         boxsize=100.,
         meshsize=512,
         **kwargs):
