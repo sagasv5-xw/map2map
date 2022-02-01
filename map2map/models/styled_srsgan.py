@@ -197,9 +197,9 @@ class D(nn.Module):
         rs = torch.clone(s).cpu().numpy()[0]
 
         lag_x = x[:, :3]
-        print(rs)
+        print(rs, '------rs-------')
         rs = np.float(rs)
-        print(rs)
+        print(rs, '-------rs float--------')
         eul_x = lag2eul(lag_x, z=rs)[0]
 
         x = torch.cat([eul_x, x], dim=1)
