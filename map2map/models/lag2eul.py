@@ -21,7 +21,7 @@ def pixel_shuffle_3d_inv(x, r):
 def lag2eul(
         dis,
         val=1.0,
-        eul_scale_factor=2,
+        eul_scale_factor=1,
         eul_pad=0,
         rm_dis_mean=True,
         periodic=False,

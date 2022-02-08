@@ -174,10 +174,10 @@ class D(nn.Module):
             return c
 
         self.block0 = nn.Sequential(
-            ConvStyled3d(in_chan + 8, chan(num_blocks), self.style_size, 1),
+            ConvStyled3d(in_chan + 1, chan(num_blocks), self.style_size, 1),
             LeakyReLUStyled(0.2, True),
         )
-        # FIXME here I hard coded the in_chan+8 to meet the dimension after mesh_up factor
+        # FIXME here I hard coded the in_chan+1 to meet the dimension after mesh_up factor 1
 
         self.blocks = nn.ModuleList()
         for b in reversed(range(num_blocks)):
@@ -194,20 +194,12 @@ class D(nn.Module):
 
     def forward(self, x, style):
         s = style
-        print(s.shape, '-----shape of s-------')
         rs = torch.clone(s).cpu().numpy()[0][0]
-        print(rs.shape,'-----shape of rs------')
-
         lag_x = x[:, :3]
-        print(rs, '------rs-------')
-        rs = np.float(rs)
-        print(rs, '-------rs float--------')
+        rs = np.float(rs)*10
         eul_x = lag2eul(lag_x, z=rs)[0]
-
         x = torch.cat([eul_x, x], dim=1)
-
         x = self.block0((x, s))
-
         for block in self.blocks:
             x = block((x, s))
         print(x.shape, s.shape, 'shape before block9')
