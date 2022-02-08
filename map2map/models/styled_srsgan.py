@@ -195,7 +195,7 @@ class D(nn.Module):
     def forward(self, x, style):
         s = style
         print(s.shape, '-----shape of s-------')
-        rs = torch.clone(s).cpu().numpy()[0]
+        rs = torch.clone(s).cpu().numpy()[0][0]
         print(rs.shape,'-----shape of rs------')
 
         lag_x = x[:, :3]
