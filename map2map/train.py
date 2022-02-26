@@ -251,6 +251,8 @@ def gpu_worker(local_rank, node, args):
         args.instance_noise = InstanceNoise(args.instance_noise,
                                             args.instance_noise_batches)
 
+    print(model)
+    print(adv_model)
     for epoch in range(start_epoch, args.epochs):
         train_sampler.set_epoch(epoch)
 

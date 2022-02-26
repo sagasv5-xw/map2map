@@ -220,11 +220,11 @@ class FieldDataset(Dataset):
         if self.in_norms is not None:
             for norm, x, s in zip(self.in_norms, in_fields, style):
                 norm = import_attr(norm, norms, callback_at=self.callback_at)
-                norm(x, z=s*10., **self.kwargs)
+                norm(x, z=1/s-1, **self.kwargs)
         if self.tgt_norms is not None:
             for norm, x, s in zip(self.tgt_norms, tgt_fields, style):
                 norm = import_attr(norm, norms, callback_at=self.callback_at)
-                norm(x, z=s*10., **self.kwargs)
+                norm(x, z=1/s-1, **self.kwargs)
 
         if self.augment:
             flip_axes = flip(in_fields, None, self.ndim)
