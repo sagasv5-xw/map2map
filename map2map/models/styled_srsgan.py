@@ -196,7 +196,7 @@ class D(nn.Module):
         s = style
         rs = torch.clone(s).cpu().numpy()[0][0]
         lag_x = x[:, :3]
-        rs = np.float(rs)*10
+        rs = 1/np.float(rs) - 1
         eul_x = lag2eul(lag_x, z=rs)[0]
         x = torch.cat([eul_x, x], dim=1)
         x = self.block0((x, s))
