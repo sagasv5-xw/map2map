@@ -194,10 +194,11 @@ class D(nn.Module):
 
     def forward(self, x, style):
         s = style
-        rs = torch.clone(s).cpu().numpy()[0][0]
+        # FIXME try do this on GPU
+        # rs = torch.clone(s).cpu().numpy()[0][0]
         lag_x = x[:, :3]
-        rs = 1/np.float(rs) - 1
-        eul_x = lag2eul(lag_x, z=rs)[0]
+        rs = np.float(s)
+        eul_x = lag2eul(lag_x, a=rs)[0]
         x = torch.cat([eul_x, x], dim=1)
         x = self.block0((x, s))
         for block in self.blocks:
