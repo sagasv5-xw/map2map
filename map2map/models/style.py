@@ -137,7 +137,7 @@ class ConvStyled3d(nn.Module):
         def init_weight(m):
             if type(m) is nn.Linear:
                 torch.nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5), mode='fan_in', nonlinearity='leaky_relu')
-                m.bias.fill_(1.0)
+                m.bias = nn.Parameter(torch.ones(in_chan))
 
         self.style_block = nn.Sequential(
             nn.Linear(in_features=style_size, out_features=in_chan),
