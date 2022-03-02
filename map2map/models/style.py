@@ -9,6 +9,7 @@ class PixelNorm(nn.Module):
 
     See ProGAN, StyleGAN.
     """
+
     def __init__(self):
         super().__init__()
 
@@ -23,6 +24,7 @@ class LinearElr(nn.Module):
 
     Useful at all if not for regularization(1706.05350)?
     """
+
     def __init__(self, in_size, out_size, bias=True, act=None):
         super().__init__()
 
@@ -52,6 +54,7 @@ class ConvElr3d(nn.Module):
 
     Useful at all if not for regularization(1706.05350)?
     """
+
     def __init__(self, in_chan, out_chan, kernel_size,
                  stride=1, padding=0, bias=True):
         super().__init__()
@@ -87,6 +90,7 @@ class ConvStyled3d(nn.Module):
 
     Weight and bias initialization from `torch.nn._ConvNd.reset_parameters()`.
     """
+
     def __init__(self, in_chan, out_chan, style_size, kernel_size=3, stride=1,
                  bias=True, resample=None):
         super().__init__()
@@ -130,28 +134,42 @@ class ConvStyled3d(nn.Module):
         else:
             self.register_parameter('bias', None)
 
+        def init_weight(m):
+            if type(m) is nn.Linear:
+                torch.nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5), mode='fan_in', nonlinearity='leaky_relu')
+                m.bias.fill_(1.0)
+
+        self.style_block = nn.Sequential(
+            nn.Linear(in_features=style_size, out_features=in_chan),
+            nn.LeakyReLU(0.2, True),
+            nn.Linear(in_features=in_chan, out_features=in_chan),
+            nn.LeakyReLU(0.2, True),
+            nn.Linear(in_features=in_chan, out_features=in_chan),
+        )
+        self.style_block.apply(init_weight)
+
     def forward(self, inputs):
         x, s = inputs[0], inputs[1]
-        eps=1e-8
-        print(x.shape, s.shape)
+        eps = 1e-8
+
         N, Cin, *DHWin = x.shape
-        print(Cin)
+
         C0, C1, *K3 = self.weight.shape
-        print(C0, C1, *K3,'weight shape')
+
         if self.resample == 'U':
             Cin, Cout = C0, C1
         else:
             Cout, Cin = C0, C1
-        print(Cin,'Cin1')
-        s = F.linear(s, self.style_weight, bias=self.style_bias)
 
+        # s = F.linear(s, self.style_weight, bias=self.style_bias)
+        s = self.style_block(s)
         # modulation
         if self.resample == 'U':
             s = s.reshape(N, Cin, 1, 1, 1, 1)
         else:
             s = s.reshape(N, 1, Cin, 1, 1, 1)
         w = self.weight * s
-        print(Cin,'Cin2')
+        # print(Cin, 'Cin2')
         # demodulation
         if self.resample == 'U':
             fan_in_dim = (1, 3, 4, 5)
@@ -160,46 +178,51 @@ class ConvStyled3d(nn.Module):
         w = w * torch.rsqrt(w.pow(2).sum(dim=fan_in_dim, keepdim=True) + eps)
 
         w = w.reshape(N * C0, C1, *K3)
-        print(N, Cin, *DHWin)
+        # print(N, Cin, *DHWin)
         x = x.reshape(1, N * Cin, *DHWin)
         x = self.conv(x, w, bias=self.bias, stride=self.stride, groups=N)
         _, _, *DHWout = x.shape
-        print('N',N,'Cout',Cout,'DHWout',*DHWout)
-        #x = x.reshape(N, Cout, *DHWout)
-        print(x.shape)
+        # print('N', N, 'Cout', Cout, 'DHWout', *DHWout)
+        # x = x.reshape(N, Cout, *DHWout)
+        # print(x.shape)
         x = x.view(N, Cout, *DHWout)
-        print(x.shape)
+        # print(x.shape)
 
         return x
 
-class BatchNormStyled3d(nn.BatchNorm3d) :
+
+class BatchNormStyled3d(nn.BatchNorm3d):
     """ Trivially does standard batch normalization, but accepts second argument
 
     for style array that is not used
     """
+
     def forward(self, x, style):
         return super().forward(x)
+
 
 class LeakyReLUStyled(nn.LeakyReLU):
     def __init__(self, negative_slope=1e-2, inplace=False):
         super().__init__(negative_slope, inplace)
+
     """ Trivially evaluates standard leaky ReLU, but accepts second argument
 
     for style array that is not used
     """
+
     def forward(self, x, style=None):
         return super().forward(x)
-
 
 
 class LeakyReLUStyled2(nn.LeakyReLU):
     def __init__(self, negative_slope=1e-2, inplace=False):
         super().__init__(negative_slope, inplace)
+
     """ Trivially evaluates standard leaky ReLU, but accepts second argument
 
     for style array that is not used
     """
+
     def forward(self, inputs):
         x = inputs[0]
         return super().forward(x)
-
