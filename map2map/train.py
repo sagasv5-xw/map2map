@@ -21,7 +21,7 @@ from .models import (
     add_spectral_norm,
     InstanceNoise,
 )
-from .utils import import_attr, load_model_state_dict, plt_slices, plt_power
+from .utils import import_attr, load_model_state_dict, plt_slices, plt_power, score
 
 
 ckpt_link = 'checkpoint.pt'
@@ -480,6 +480,8 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
             skip_chan = sum(args.in_chan)
             output = output[:, skip_chan:]
             target = target[:, skip_chan:]
+
+        score(output, target, style)
 
         fig = plt_slices(
             input[-1], output[-1], target[-1], output[-1] - target[-1],

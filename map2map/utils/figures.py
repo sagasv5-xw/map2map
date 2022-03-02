@@ -2,10 +2,12 @@ from math import log2, log10, ceil
 import torch
 import numpy as np
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm, SymLogNorm
 from matplotlib.cm import ScalarMappable
+
 plt.rc('text', usetex=False)
 
 from ..models import lag2eul, power
@@ -13,6 +15,12 @@ from ..models import lag2eul, power
 
 def quantize(x):
     return 2 ** round(log2(x), ndigits=1)
+
+
+def score(output, target, style):
+    print(output.shape, '--------shape of output in score-------')
+    print(target.shape, '--------shape of target in score-------')
+    print(style.shape, '--------shape of style in score-------')
 
 
 def plt_slices(*fields, size=64, title=None, cmap=None, norm=None, **kwargs):
