@@ -95,10 +95,10 @@ class ConvStyled3d(nn.Module):
                  bias=True, resample=None):
         super().__init__()
 
-        self.style_weight = nn.Parameter(torch.empty(in_chan, style_size))
-        nn.init.kaiming_uniform_(self.style_weight, a=math.sqrt(5),
-                                 mode='fan_in', nonlinearity='leaky_relu')
-        self.style_bias = nn.Parameter(torch.ones(in_chan))  # NOTE: init to 1
+        # self.style_weight = nn.Parameter(torch.empty(in_chan, style_size))
+        # nn.init.kaiming_uniform_(self.style_weight, a=math.sqrt(5),
+        #                          mode='fan_in', nonlinearity='leaky_relu')
+        # self.style_bias = nn.Parameter(torch.ones(in_chan))  # NOTE: init to 1
 
         if resample is None:
             K3 = (kernel_size,) * 3
