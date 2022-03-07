@@ -483,6 +483,10 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
 
         score(output, target, style)
 
+        print('------input shape before power--------', input.shape)
+        print('------output shape before power--------', output.shape)
+        print('------target shape before power--------', target.shape)
+
         fig = plt_slices(
             input[-1], output[-1], target[-1], output[-1] - target[-1],
             title=['in', 'out', 'tgt', 'out - tgt'],
