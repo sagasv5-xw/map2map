@@ -481,7 +481,12 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
             output = output[:, skip_chan:]
             target = target[:, skip_chan:]
 
-        score(output, target, style)
+        metric_score = score(
+            output, target,
+            labels = ['output', 'target'],
+        )
+
+        logger.add_scalar('loss/epoch/train', metric_score, global_step=epoch+1)
 
         print('------input shape before power--------', input.shape)
         print('------output shape before power--------', output.shape)

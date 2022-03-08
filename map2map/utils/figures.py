@@ -17,10 +17,38 @@ def quantize(x):
     return 2 ** round(log2(x), ndigits=1)
 
 
-def score(output, target, style):
-    print(output.shape, '--------shape of output in score-------')
-    print(target.shape, '--------shape of target in score-------')
-    print(style.shape, '--------shape of style in score-------')
+def area_under_curve(x1, pwr1, x2, pwr2):
+    x1 = np.log(x1[pwr1 > 0])
+    curve1 = np.log(pwr1[pwr1 > 0])
+    x2 = np.log(x2[pwr1 > 0])
+    curve2 = np.log(pwr2[pwr2 > 0])
+    shift = np.abs(min(np.min(curve1), np.min(curve2)))
+    curve1 += shift
+    curve2 += shift
+    s1 = np.trapz(curve1, x1)
+    s2 = np.trapz(curve2, x2)
+
+    return s1/s2
+
+
+def score(*fields, labels=None):
+    if labels is not None:
+        assert len(labels) == len(fields)
+    with torch.no_grad():
+        ks, ps = [], []
+        for field in fields:
+            k, P, _ = power(field)
+            ks.append(k)
+            ps.append(P)
+
+    ks = [k.cpu().numpy() for k in ks]
+    ps = [P.cpu().numpy() for P in ps]
+
+    if labels[0] is 'output' and labels[1] is 'target':
+        return area_under_curve(ks[0], ps[0], ks[1], ps[1])
+    else:
+        return area_under_curve(ks[1], ps[1], ks[0], ps[0])
+
 
 
 def plt_slices(*fields, size=64, title=None, cmap=None, norm=None, **kwargs):
