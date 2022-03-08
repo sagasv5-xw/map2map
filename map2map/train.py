@@ -486,7 +486,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
             labels = ['output', 'target'],
         )
 
-        logger.add_scalar('loss/epoch/train', metric_score, global_step=epoch+1)
+        logger.add_scalar('loss/epoch/train/score', metric_score, global_step=epoch+1)
 
         print('------input shape before power--------', input.shape)
         print('------output shape before power--------', output.shape)
