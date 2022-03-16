@@ -55,6 +55,7 @@ def lag2eul(
     # NOTE the following factor assumes the displacements have been normalized
     # by data.norms.cosmology.dis, and thus undoes it
     z = 1/a - 1
+
     dis_norm = dis_std * D(z) * meshsize / boxsize  # to mesh unit
     dis_norm *= eul_scale_factor
 
