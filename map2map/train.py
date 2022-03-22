@@ -341,7 +341,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
         target = target.to(device, non_blocking=True)
         style = style.to(device, non_blocking=True)
         
-        print(input.shape, style.shape)
+        #print(input.shape, style.shape)
         output = model(input, style)
         if batch <= 5 and rank == 0:
             print('##### batch :', batch)

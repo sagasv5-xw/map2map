@@ -203,7 +203,7 @@ class D(nn.Module):
         x = self.block0((x, s))
         for block in self.blocks:
             x = block((x, s))
-        print(x.shape, s.shape, 'shape before block9')
+        #print(x.shape, s.shape, 'shape before block9')
         x = self.block9((x, s))
         x = self.block10((x, s))
 

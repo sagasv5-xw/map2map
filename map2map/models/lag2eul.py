@@ -146,9 +146,9 @@ def lag2eul(
             mesh[n].view(C, -1).index_add_(1, ind, src)
         
         if eul_scale_factor > 1:
-            print(mesh.shape,'before shuffle')
+            #print(mesh.shape,'before shuffle')
             mesh = pixel_shuffle_3d_inv(mesh, eul_scale_factor)
-            print(mesh.shape,'after shuffle')
+            #print(mesh.shape,'after shuffle')
 
         out.append(mesh)
 
