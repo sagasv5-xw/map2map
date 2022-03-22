@@ -217,18 +217,23 @@ class FieldDataset(Dataset):
             style = torch.from_numpy(style.astype(np.float32))
 
         if self.in_norms is not None:
-            print('norm', self.in_norms)
-            print('in_field', in_fields)
-            print('style', style)
-            for norm, x, s in zip(self.in_norms, in_fields, style):
+            # FIXME
+            # zip problem when style shape is 1
+            # for norm, x, s in zip(self.in_norms, in_fields, style):
+            for norm, x in zip(self.in_norms, in_fields):
                 # print('norm',norm, 'style', style,'---------fields in norm ----------')
                 norm = import_attr(norm, norms, callback_at=self.callback_at)
-                norm(x, a=s, **self.kwargs)
+                # norm(x, a=s, **self.kwargs)
+                norm(x, a=style, **self.kwargs)
         if self.tgt_norms is not None:
-            for norm, x, s in zip(self.tgt_norms, tgt_fields, style):
+            # FIXME
+            # zip problem when style shape is 1
+            # for norm, x, s in zip(self.tgt_norms, tgt_fields, style):
+            for norm, x in zip(self.tgt_norms, tgt_fields):
                 #print('norm', norm, 'style', style, '---------fields tgt norm ----------')
                 norm = import_attr(norm, norms, callback_at=self.callback_at)
-                norm(x, a=s, **self.kwargs)
+                #norm(x, a=s, **self.kwargs)
+                norm(x, a=style, **self.kwargs)
 
         if self.augment:
             flip_axes = flip(in_fields, None, self.ndim)
