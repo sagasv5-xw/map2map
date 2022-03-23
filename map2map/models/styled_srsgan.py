@@ -197,7 +197,7 @@ class D(nn.Module):
         # FIXME try do this on GPU
         # rs = torch.clone(s).cpu().numpy()[0][0]
         lag_x = x[:, :3]
-        rs = torch.clone(s).cpu()
+        rs = np.float(s)
         eul_x = lag2eul(lag_x, a=rs)[0]
         x = torch.cat([eul_x, x], dim=1)
         x = self.block0((x, s))
