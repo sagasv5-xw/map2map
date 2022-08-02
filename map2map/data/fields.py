@@ -1,3 +1,4 @@
+from genericpath import sameopenfile
 import os
 import pathlib
 from glob import glob
@@ -5,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
+from torch.utils.data import WeightedRandomSampler
 import random
 
 from ..utils import import_attr
@@ -51,13 +53,28 @@ class FieldDataset(Dataset):
                  in_pad=0, tgt_pad=0, scale_factor=1,
                  **kwargs):
         #you can adjust the random seed to randomize the in pattern sequence
-
+        
         in_file_lists = [sorted(glob(p)) for p in in_patterns]
+        print(len(in_file_lists[0]), len(in_file_lists[1]))
+        sample_ind = []
+        for i in range(8):
+            temp_sample = list(WeightedRandomSampler(torch.tensor(np.geomspace(0.1, 1 ,30)), 10))
+            sample = [x + i *30 for x in temp_sample]
+            sample_ind += sample
+        disp_list = [in_file_lists[0][i] for i in sample_ind]
+        vel_list = [in_file_lists[1][i] for i in sample_ind]
+        in_file_lists[0] = disp_list
+        in_file_lists[1] = vel_list
         # for p in in_file_lists:
         #     random.Random(local_random_seed).shuffle(p)
         self.in_files = list(zip(* in_file_lists))
 
         tgt_file_lists = [sorted(glob(p)) for p in tgt_patterns]
+
+        disp_list = [tgt_file_lists[0][i] for i in sample_ind]
+        vel_list = [tgt_file_lists[1][i] for i in sample_ind]
+        tgt_file_lists[0] = disp_list
+        tgt_file_lists[1] = vel_list
         # for p in tgt_file_lists:
         #     random.Random(local_random_seed).shuffle(p)
         self.tgt_files = list(zip(* tgt_file_lists))
@@ -83,8 +100,10 @@ class FieldDataset(Dataset):
         self.style_size = 0
         if self.style:
             style_files = sorted(glob(style_pattern))
+            print(len(style_files))
+            sample_style = [style_files[i] for i in sample_ind]
             # random.Random(local_random_seed).shuffle(style_files)
-            self.style_files = style_files
+            self.style_files = sample_style
             if len(self.style_files) != len(self.in_files):
                 raise ValueError('number of style and input files do not match')
             self.style_size = np.load(self.style_files[0]).shape[0]

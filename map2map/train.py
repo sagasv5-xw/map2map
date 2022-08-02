@@ -86,6 +86,7 @@ def gpu_worker(local_rank, node, args):
     train_sampler = DistFieldSampler(train_dataset, shuffle=True,
                                      div_data=args.div_data,
                                      div_shuffle_dist=args.div_shuffle_dist)
+    #random_sampler = 
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -310,7 +311,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
     model.train()
     if args.adv:
         adv_model.train()
-
+    print(torch.version.cuda, '------ cuda version -------')
     rank = dist.get_rank()
     world_size = dist.get_world_size()
 
@@ -481,32 +482,33 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
             output = output[:, skip_chan:]
             target = target[:, skip_chan:]
 
-        metric_score = score(
-            output, target,
-            labels = ['output', 'target'],
-        )
+        # metric_score = score(
+        #     output, target,
+        #     labels = ['output', 'target'],
+        # )
 
-        logger.add_scalar('loss/epoch/train/score', metric_score, global_step=epoch+1)
+        # logger.add_scalar('loss/epoch/train/score', metric_score, global_step=epoch+1)
 
-        print('------input shape before power--------', input.shape)
-        print('------output shape before power--------', output.shape)
-        print('------target shape before power--------', target.shape)
+        # print('------input shape before power--------', input.shape)
+        # print('------output shape before power--------', output.shape)
+        # print('------target shape before power--------', target.shape)
 
-        fig = plt_slices(
-            input[-1], output[-1], target[-1], output[-1] - target[-1],
-            title=['in', 'out', 'tgt', 'out - tgt'],
-            **args.misc_kwargs,
-        )
-        logger.add_figure('fig/train', fig, global_step=epoch+1)
-        fig.clf()
+        # fig = plt_slices(
+        #     input[-1], output[-1], target[-1], output[-1] - target[-1],
+        #     title=['in', 'out', 'tgt', 'out - tgt'],
+        #     **args.misc_kwargs,
+        # )
+        # logger.add_figure('fig/train', fig, global_step=epoch+1)
+        # fig.clf()
 
-        fig = plt_power(
-            input, output, target,
-            label=['in', 'out', 'tgt'],
-            **args.misc_kwargs,
-        )
-        logger.add_figure('fig/train/power/lag', fig, global_step=epoch+1)
-        fig.clf()
+        # fig = plt_power(
+        #     input, output, target,
+        #     label=['in', 'out', 'tgt'],
+        #     **args.misc_kwargs,
+        # )
+        # logger.add_figure('fig/train/power/lag', fig, global_step=epoch+1)
+        # fig.clf()
+        # torch.cuda.memory_snapshot()
 
         #fig = plt_power(1.0,
         #    dis=[input, output, target],
