@@ -1,6 +1,7 @@
 import torch
 import torch.distributed as dist
 from torch.utils.data import Sampler
+from torch.utils.data import WeightedRandomSampler
 
 
 class DistFieldSampler(Sampler):
@@ -23,7 +24,7 @@ class DistFieldSampler(Sampler):
     of each epoch during training.
     """
     def __init__(self, dataset, shuffle,
-                 div_data=False, div_shuffle_dist=0):
+                 div_data=False, div_shuffle_dist=0, weighted_sample=False):
         self.rank = dist.get_rank()
         self.world_size = dist.get_world_size()
 
@@ -31,7 +32,7 @@ class DistFieldSampler(Sampler):
         self.nsample = len(dataset)
         self.nfile = dataset.nfile
         self.ncrop = dataset.ncrop
-        
+        print(self.nsample, self.nfile, self.ncrop)
 
         self.shuffle = shuffle
 
