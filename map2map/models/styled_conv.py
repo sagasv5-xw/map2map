@@ -27,7 +27,7 @@ class ConvStyledBlock(nn.Module):
         self.in_chan = in_chan
         self.out_chan = out_chan
         if mid_chan is None:
-            self.mid_chan = max(in_chan, out_chan)
+            self.mid_chan = min(in_chan, out_chan)
         self.kernel_size = kernel_size
         self.stride = stride
 
@@ -127,7 +127,7 @@ class ResStyledBlock(ConvStyledBlock):
 
     def forward(self, inputs):
         x, s = inputs[0], inputs[1]
-        #s = style
+
         y = x
 
         if self.skip is not None:
@@ -135,6 +135,7 @@ class ResStyledBlock(ConvStyledBlock):
 
         for l in self.convs:
             x = l((x, s))
+
 
         y = narrow_like(y, x)
         x += y

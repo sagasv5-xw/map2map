@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from .narrow import narrow_by
 from .resample import Resampler, Resampler2
-from .style import ConvStyled3d, LeakyReLUStyled
+from .style import ConvStyled3d, LeakyReLUStyled, LeakyReLUStyled2
 from .styled_conv import ResStyledBlock
 from .lag2eul import lag2eul
 
@@ -44,7 +44,7 @@ class G(nn.Module):
         for b in range(num_blocks):
             prev_chan, next_chan = chan(b), chan(b + 1)
             self.blocks.append(
-                HBlock(prev_chan, next_chan, out_chan, cat_noise))
+                HBlock(prev_chan, next_chan, out_chan, cat_noise, style_size))
 
     def forward(self, x, style):
         s = style
@@ -53,9 +53,9 @@ class G(nn.Module):
         x = self.block0((x, s))
 
         # y = None  # no direct upsampling from the input
-        for block in self.blocks:
-            x, y = block(x, y)
 
+        for block in self.blocks:
+            x, y, s = block(x, y, s)
         return y
 
 
@@ -86,40 +86,47 @@ class HBlock(nn.Module):
     next_size = 2 * prev_size - 6
     """
 
-    def __init__(self, prev_chan, next_chan, out_chan, cat_noise):
+    def __init__(self, prev_chan, next_chan, out_chan, cat_noise, style_size):
         super().__init__()
 
         self.upsample = Resampler(3, 2)
 
-        self.conv = nn.Sequential(
+        # isolate conv style part to make input right
+        self.noise_upsample = nn.Sequential(
             AddNoise(cat_noise, chan=prev_chan),
             self.upsample,
-            nn.Conv3d(prev_chan + int(cat_noise), next_chan, 3),
-            nn.LeakyReLU(0.2, True),
+        )
 
-            AddNoise(cat_noise, chan=next_chan),
-            nn.Conv3d(next_chan + int(cat_noise), next_chan, 3),
-            nn.LeakyReLU(0.2, True),
+        self.conv = nn.Sequential(
+            ConvStyled3d(prev_chan + int(cat_noise), next_chan, style_size, 3),
+            LeakyReLUStyled(0.2, True),
+        )
+        self.addnoise = AddNoise(cat_noise, chan=next_chan) 
+        
+        self.conv1 = nn.Sequential(
+            ConvStyled3d(next_chan + int(cat_noise), next_chan, style_size, 3),
+            LeakyReLUStyled(0.2, True),
         )
 
         self.proj = nn.Sequential(
-            nn.Conv3d(next_chan, out_chan, 1),
-            nn.LeakyReLU(0.2, True),
+            ConvStyled3d(next_chan + int(cat_noise), out_chan, style_size, 1),
+            LeakyReLUStyled(0.2, True),
         )
 
-    def forward(self, x, y):
-        x = self.conv(x)  # narrow by 3
+    def forward(self, x, y, s):
+        x = self.noise_upsample(x)
+        x = self.conv((x,s))
+        x = self.addnoise(x)
+        x = self.conv1((x,s))
 
         if y is None:
-            y = self.proj(x)
+            y = self.proj((x,s))
         else:
-            y = self.upsample(y)  # narrow by 1
+            y = self.upsample(y)  
 
             y = narrow_by(y, 2)
-
-            y = y + self.proj(x)
-
-        return x, y
+            y = y + self.proj((x,s))
+        return x, y, s
 
 
 class AddNoise(nn.Module):
@@ -153,7 +160,7 @@ class AddNoise(nn.Module):
 
 
 class D(nn.Module):
-    def __init__(self, in_chan, out_chan, style_size, scale_factor=16,
+    def __init__(self, in_chan, out_chan, style_size, scale_factor=8,
                  chan_base=512, chan_min=64, chan_max=512,
                  **kwargs):
         super().__init__()
@@ -174,16 +181,16 @@ class D(nn.Module):
             return c
 
         self.block0 = nn.Sequential(
-            ConvStyled3d(in_chan + 1, chan(num_blocks), self.style_size, 1),
+            ConvStyled3d(in_chan + 8, chan(num_blocks), self.style_size, 1),
             LeakyReLUStyled(0.2, True),
         )
-        # FIXME here I hard coded the in_chan+1 to meet the dimension after mesh_up factor 1
+        # FIXME here I hard coded the in_chan+8 to meet the dimension after mesh_up factor 2
 
         self.blocks = nn.ModuleList()
         for b in reversed(range(num_blocks)):
             prev_chan, next_chan = chan(b + 1), chan(b)
             self.blocks.append(ResStyledBlock(in_chan=prev_chan, out_chan=next_chan, style_size=style_size, seq='CACA',
-                                              last_act=False))
+                                                last_act=False))
             self.blocks.append(Resampler2(3, 0.5))
 
         self.block9 = nn.Sequential(
@@ -193,17 +200,19 @@ class D(nn.Module):
         self.block10 = ConvStyled3d(chan(-1), 1, self.style_size, 1)
 
     def forward(self, x, style):
+        # lag to eul
         s = style
-        # FIXME try do this on GPU
-        # rs = torch.clone(s).cpu().numpy()[0][0]
-        lag_x = x[:, :3]
-        rs = np.float(s)
-        eul_x = lag2eul(lag_x, a=rs)[0]
-        x = torch.cat([eul_x, x], dim=1)
+        # lag_x = x[:, :3]
+        # rs = np.float(s)
+        # eul_x = lag2eul(lag_x, a=rs)[0]
+        # x = torch.cat([eul_x, x], dim=1)
+        
+        # D start
         x = self.block0((x, s))
+
         for block in self.blocks:
             x = block((x, s))
-        #print(x.shape, s.shape, 'shape before block9')
+
         x = self.block9((x, s))
         x = self.block10((x, s))
 

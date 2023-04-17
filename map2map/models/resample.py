@@ -50,6 +50,8 @@ class Resampler2(nn.Module):
     """Resampling, upsampling or downsampling.
 
     By default discard the inaccurate edges when upsampling.
+    
+    A copy of Resampler, but accepts a list of inputs.
     """
     def __init__(self, ndim, scale_factor, narrow=True):
         super().__init__()

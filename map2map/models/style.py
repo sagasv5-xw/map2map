@@ -137,14 +137,11 @@ class ConvStyled3d(nn.Module):
         def init_weight(m):
             if type(m) is nn.Linear:
                 torch.nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5), mode='fan_in', nonlinearity='leaky_relu')
-                m.bias = nn.Parameter(torch.ones(in_chan))
+                if m.bias is not None:
+                    torch.nn.init.ones_(m.bias)
 
         self.style_block = nn.Sequential(
             nn.Linear(in_features=style_size, out_features=in_chan),
-            nn.LeakyReLU(0.2, True),
-            nn.Linear(in_features=in_chan, out_features=in_chan),
-            nn.LeakyReLU(0.2, True),
-            nn.Linear(in_features=in_chan, out_features=in_chan),
         )
         self.style_block.apply(init_weight)
 
@@ -180,13 +177,13 @@ class ConvStyled3d(nn.Module):
         w = w.reshape(N * C0, C1, *K3)
         # print(N, Cin, *DHWin)
         x = x.reshape(1, N * Cin, *DHWin)
+        # END HERE
         x = self.conv(x, w, bias=self.bias, stride=self.stride, groups=N)
         _, _, *DHWout = x.shape
         # print('N', N, 'Cout', Cout, 'DHWout', *DHWout)
         # x = x.reshape(N, Cout, *DHWout)
         # print(x.shape)
         x = x.view(N, Cout, *DHWout)
-        # print(x.shape)
 
         return x
 
@@ -202,7 +199,7 @@ class BatchNormStyled3d(nn.BatchNorm3d):
 
 
 class LeakyReLUStyled(nn.LeakyReLU):
-    def __init__(self, negative_slope=1e-2, inplace=False):
+    def __init__(self, negative_slope=0.2, inplace=False):
         super().__init__(negative_slope, inplace)
 
     """ Trivially evaluates standard leaky ReLU, but accepts second argument
@@ -215,14 +212,17 @@ class LeakyReLUStyled(nn.LeakyReLU):
 
 
 class LeakyReLUStyled2(nn.LeakyReLU):
-    def __init__(self, negative_slope=1e-2, inplace=False):
+    def __init__(self, negative_slope=0.2, inplace=False):
         super().__init__(negative_slope, inplace)
 
     """ Trivially evaluates standard leaky ReLU, but accepts second argument
 
     for style array that is not used
+    
+    a copy of LeakyReLUStyled, accept list of inputs
     """
 
     def forward(self, inputs):
         x = inputs[0]
         return super().forward(x)
+

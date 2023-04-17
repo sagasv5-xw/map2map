@@ -3,6 +3,7 @@ import socket
 import time
 import sys
 from pprint import pprint
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from .data import FieldDataset, DistFieldSampler
 from . import models
 from .models import (
-    narrow_cast, resample,
+    narrow_cast, resample,lag2eul,
     WDistLoss, wasserstein_distance_loss, wgan_grad_penalty,
     grad_penalty_reg,
     add_spectral_norm,
@@ -86,6 +87,7 @@ def gpu_worker(local_rank, node, args):
     train_sampler = DistFieldSampler(train_dataset, shuffle=True,
                                      div_data=args.div_data,
                                      div_shuffle_dist=args.div_shuffle_dist)
+    #random_sampler = 
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -131,6 +133,7 @@ def gpu_worker(local_rank, node, args):
     args.in_chan = train_dataset.in_chan
     args.out_chan = train_dataset.tgt_chan
     args.style_size = train_dataset.style_size
+
 
     model = import_attr(args.model, models, callback_at=args.callback_at)
     model = model(sum(args.in_chan), sum(args.out_chan), style_size=args.style_size,
@@ -310,7 +313,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
     model.train()
     if args.adv:
         adv_model.train()
-
+    print(torch.version.cuda, '------ cuda version -------')
     rank = dist.get_rank()
     world_size = dist.get_world_size()
 
@@ -358,6 +361,9 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
             print('narrowed shape :', output.shape, flush=True)
 
         loss = criterion(output, target)
+        # print('----- after trainin criterion -----')
+        # print(output.requires_grad, 'check require output gradient in training')
+        # print(target.requires_grad, 'check require target gradient in training')
         epoch_loss[0] += loss.detach()
 
         if args.adv and epoch >= args.adv_start:
@@ -369,28 +375,49 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
                 target = target + noise
                 del noise
 
+            lag_out = output[:, :3]
+            eul_out = lag2eul(lag_out, a=np.float(style))[0]
+            lag_tgt = target[:, :3]
+            eul_tgt = lag2eul(lag_tgt, a=np.float(style))[0]
+            
+            output = torch.cat([eul_out, output], dim=1)
+            target = torch.cat([eul_tgt, target], dim=1)
+            
+            
             if args.cgan:
                 output = torch.cat([input, output], dim=1)
                 target = torch.cat([input, target], dim=1)
-
+            # if output.requires_grad is not True:
+            #     output.requires_grad_(True)
+            # if target.requires_grad is not True:
+            #     target.requires_grad_(True)
+            # print('----- after set requires grad -----')
+            # print(output.requires_grad, 'check require output gradient in training')
+            # print(target.requires_grad, 'check require target gradient in training')
+                
+            # check require grad
+            # assert target.requires_grad == True
+            # assert output.requires_grad == True
             # discriminator
             set_requires_grad(adv_model, True)
 
             score_out = adv_model(output.detach(), style=style)
             adv_loss_fake = adv_criterion(score_out, fake.expand_as(score_out))
-            epoch_loss[3] += adv_loss_fake.detach()
+            epoch_loss[3] += adv_loss_fake.item()
+
 
             adv_optimizer.zero_grad()
             adv_loss_fake.backward()
 
             score_tgt = adv_model(target, style=style)
             adv_loss_real = adv_criterion(score_tgt, adv_real.expand_as(score_tgt))
-            epoch_loss[4] += adv_loss_real.detach()
+            epoch_loss[4] += adv_loss_real.item()
+
 
             adv_loss_real.backward()
 
             adv_loss = adv_loss_fake + adv_loss_real
-            epoch_loss[2] += adv_loss.detach()
+            epoch_loss[2] += adv_loss.item()
 
             if (args.adv_wgan_gp_interval > 0
                 and  batch % args.adv_wgan_gp_interval == 0):
@@ -415,7 +442,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
 
                 score_out = adv_model(output, style=style)
                 loss_adv = adv_criterion(score_out, real.expand_as(score_out))
-                epoch_loss[1] += args.adv_iter_ratio * loss_adv.detach()
+                epoch_loss[1] += args.adv_iter_ratio * loss_adv.item()
 
                 optimizer.zero_grad()
                 loss_adv.backward()
@@ -481,32 +508,33 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
             output = output[:, skip_chan:]
             target = target[:, skip_chan:]
 
-        metric_score = score(
-            output, target,
-            labels = ['output', 'target'],
-        )
+        # metric_score = score(
+        #     output, target,
+        #     labels = ['output', 'target'],
+        # )
 
-        logger.add_scalar('loss/epoch/train/score', metric_score, global_step=epoch+1)
+        # logger.add_scalar('loss/epoch/train/score', metric_score, global_step=epoch+1)
 
-        print('------input shape before power--------', input.shape)
-        print('------output shape before power--------', output.shape)
-        print('------target shape before power--------', target.shape)
+        # print('------input shape before power--------', input.shape)
+        # print('------output shape before power--------', output.shape)
+        # print('------target shape before power--------', target.shape)
 
-        fig = plt_slices(
-            input[-1], output[-1], target[-1], output[-1] - target[-1],
-            title=['in', 'out', 'tgt', 'out - tgt'],
-            **args.misc_kwargs,
-        )
-        logger.add_figure('fig/train', fig, global_step=epoch+1)
-        fig.clf()
+        # fig = plt_slices(
+        #     input[-1], output[-1], target[-1], output[-1] - target[-1],
+        #     title=['in', 'out', 'tgt', 'out - tgt'],
+        #     **args.misc_kwargs,
+        # )
+        # logger.add_figure('fig/train', fig, global_step=epoch+1)
+        # fig.clf()
 
-        fig = plt_power(
-            input, output, target,
-            label=['in', 'out', 'tgt'],
-            **args.misc_kwargs,
-        )
-        logger.add_figure('fig/train/power/lag', fig, global_step=epoch+1)
-        fig.clf()
+        # fig = plt_power(
+        #     input, output, target,
+        #     label=['in', 'out', 'tgt'],
+        #     **args.misc_kwargs,
+        # )
+        # logger.add_figure('fig/train/power/lag', fig, global_step=epoch+1)
+        # fig.clf()
+        # torch.cuda.memory_snapshot()
 
         #fig = plt_power(1.0,
         #    dis=[input, output, target],

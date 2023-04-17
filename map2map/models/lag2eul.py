@@ -21,12 +21,12 @@ def pixel_shuffle_3d_inv(x, r):
 def lag2eul(
         dis,
         val=1.0,
-        eul_scale_factor=1,
+        eul_scale_factor=2,
         eul_pad=0,
         rm_dis_mean=True,
         periodic=False,
-        a=0.0,
-        dis_std=6000.0,
+        a=0.3333,
+        dis_std=6.0,
         boxsize=100.,
         meshsize=512,
         **kwargs):

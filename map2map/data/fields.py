@@ -1,3 +1,4 @@
+from genericpath import sameopenfile
 import os
 import pathlib
 from glob import glob
@@ -5,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
+from torch.utils.data import WeightedRandomSampler
 import random
 
 from ..utils import import_attr
@@ -51,16 +53,25 @@ class FieldDataset(Dataset):
                  in_pad=0, tgt_pad=0, scale_factor=1,
                  **kwargs):
         #you can adjust the random seed to randomize the in pattern sequence
-
+        sampling = True
         in_file_lists = [sorted(glob(p)) for p in in_patterns]
-        # for p in in_file_lists:
-        #     random.Random(local_random_seed).shuffle(p)
-        self.in_files = list(zip(* in_file_lists))
+
+        num_snapshots = len(in_file_lists[0])
+        sample_idx = list(WeightedRandomSampler(weights=torch.ones(num_snapshots), num_samples= min(64, num_snapshots), replacement=False))
+
+        if sampling:
+            sampled_in_list = [[x[i] for i in sample_idx] for x in in_file_lists]
+            self.in_files = list(zip(* sampled_in_list))
+        else:
+            self.in_files = list(zip(*in_file_lists))
 
         tgt_file_lists = [sorted(glob(p)) for p in tgt_patterns]
-        # for p in tgt_file_lists:
-        #     random.Random(local_random_seed).shuffle(p)
-        self.tgt_files = list(zip(* tgt_file_lists))
+
+        if sampling:
+            sampled_tgt_list = [[x[i] for i in sample_idx] for x in tgt_file_lists]
+            self.tgt_files = list(zip(* sampled_tgt_list))
+        else:
+            self.tgt_files = list(zip(*tgt_file_lists))
 
         if len(self.in_files) != len(self.tgt_files):
             raise ValueError('number of input and target fields do not match')
@@ -83,8 +94,12 @@ class FieldDataset(Dataset):
         self.style_size = 0
         if self.style:
             style_files = sorted(glob(style_pattern))
-            # random.Random(local_random_seed).shuffle(style_files)
-            self.style_files = style_files
+            if sampling:
+                sampled_style_list = [style_files[i] for i in sample_idx]
+                self.style_files = sampled_style_list
+            else:
+                self.style_files = style_files
+
             if len(self.style_files) != len(self.in_files):
                 raise ValueError('number of style and input files do not match')
             self.style_size = np.load(self.style_files[0]).shape[0]
@@ -215,24 +230,15 @@ class FieldDataset(Dataset):
         if self.style:
             style = np.load(self.style_files[ifile])
             style = torch.from_numpy(style.astype(np.float32))
+        print('field while loading files',style.shape)
 
         if self.in_norms is not None:
-            # FIXME
-            # zip problem when style shape is 1
-            # for norm, x, s in zip(self.in_norms, in_fields, style):
             for norm, x in zip(self.in_norms, in_fields):
-                # print('norm',norm, 'style', style,'---------fields in norm ----------')
                 norm = import_attr(norm, norms, callback_at=self.callback_at)
-                # norm(x, a=s, **self.kwargs)
                 norm(x, a=style, **self.kwargs)
         if self.tgt_norms is not None:
-            # FIXME
-            # zip problem when style shape is 1
-            # for norm, x, s in zip(self.tgt_norms, tgt_fields, style):
             for norm, x in zip(self.tgt_norms, tgt_fields):
-                #print('norm', norm, 'style', style, '---------fields tgt norm ----------')
                 norm = import_attr(norm, norms, callback_at=self.callback_at)
-                #norm(x, a=s, **self.kwargs)
                 norm(x, a=style, **self.kwargs)
 
         if self.augment:

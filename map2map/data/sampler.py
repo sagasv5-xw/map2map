@@ -31,6 +31,7 @@ class DistFieldSampler(Sampler):
         self.nsample = len(dataset)
         self.nfile = dataset.nfile
         self.ncrop = dataset.ncrop
+        
 
         self.shuffle = shuffle
 
