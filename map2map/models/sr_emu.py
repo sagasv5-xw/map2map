@@ -109,14 +109,23 @@ class Generator(nn.Module):
                 x: torch.Tensor, 
                 style: torch.Tensor, 
                 early_noise: torch.Tensor,
-                noise01: torch.Tensor,
-                noise02: torch.Tensor,
-                noise11: torch.Tensor,
-                noise12: torch.Tensor,
-                noise21: torch.Tensor,
-                noise22: torch.Tensor,
+                noise0: torch.Tensor,
+                noise1: torch.Tensor,
+                noise2: torch.Tensor,
                 ):
         y = x  # direct upsampling from the input
+        
+        noise01 = noise0
+        noise02 = narrow_by(noise0, 1)
+        del noise0
+        
+        noise11 = noise1
+        noise12 = narrow_by(noise1, 1)
+        del noise1
+        
+        noise21 = noise2
+        noise22 = narrow_by(noise2, 1)
+        del noise2
         
         x = self.block0((x, style))
         x = self.act(x)

@@ -67,6 +67,10 @@ def gpu_worker(local_rank, node, args):
     train_dataset = FieldDataset(
         in_patterns=args.train_in_patterns,
         tgt_patterns=args.train_tgt_patterns,
+        early_noise_patterns=args.train_early_noise_patterns,
+        noise_patterns0=args.train_noise0_patterns,
+        noise_patterns1=args.train_noise1_patterns,
+        noise_patterns2=args.train_noise2_patterns,
         style_pattern=args.train_style_pattern,
         in_norms=args.in_norms,
         tgt_norms=args.tgt_norms,
@@ -81,6 +85,7 @@ def gpu_worker(local_rank, node, args):
         crop_step=args.crop_step,
         in_pad=args.in_pad,
         tgt_pad=args.tgt_pad,
+        noise_pad=args.noise_pad,
         scale_factor=args.scale_factor,
         **args.misc_kwargs,
     )
@@ -156,46 +161,10 @@ def gpu_worker(local_rank, node, args):
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, **args.scheduler_args)
 
-    adv_model = adv_criterion = adv_optimizer = adv_scheduler = None
-    if args.adv:
-        adv_model = import_attr(args.adv_model, models,
-                                callback_at=args.callback_at)
-        adv_model = adv_model(
-            sum(args.in_chan + args.out_chan) if args.cgan
-                else sum(args.out_chan),
-            1,
-            style_size=args.style_size,
-            scale_factor=args.scale_factor,
-            **args.misc_kwargs,
-        )
-        if args.adv_model_spectral_norm:
-            add_spectral_norm(adv_model)
-        adv_model.to(device)
-        adv_model = DistributedDataParallel(adv_model, device_ids=[device],
-                                            process_group=dist.new_group())
-
-        adv_criterion = import_attr(args.adv_criterion, nn, models,
-                                    callback_at=args.callback_at)
-        adv_criterion = adv_criterion()
-        adv_criterion.to(device)
-
-        adv_optimizer = import_attr(args.optimizer, optim,
-                                    callback_at=args.callback_at)
-        adv_optimizer = adv_optimizer(
-            adv_model.parameters(),
-            lr=args.adv_lr,
-            **args.adv_optimizer_args,
-        )
-        adv_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            adv_optimizer, **args.scheduler_args)
-
     if (args.load_state == ckpt_link and not os.path.isfile(ckpt_link)
             or not args.load_state):
         if args.init_weight_std is not None:
             model.apply(init_weights)
-
-            if args.adv:
-                adv_model.apply(init_weights)
 
         start_epoch = 0
 
@@ -213,16 +182,6 @@ def gpu_worker(local_rank, node, args):
             optimizer.load_state_dict(state['optimizer'])
         if 'scheduler' in state:
             scheduler.load_state_dict(state['scheduler'])
-
-        if args.adv:
-            if 'adv_model' in state:
-                load_model_state_dict(adv_model.module, state['adv_model'],
-                                      strict=args.load_state_strict)
-
-            if 'adv_optimizer' in state:
-                adv_optimizer.load_state_dict(state['adv_optimizer'])
-            if 'adv_scheduler' in state:
-                adv_scheduler.load_state_dict(state['adv_scheduler'])
 
         torch.set_rng_state(state['rng'].cpu())  # move rng state back
 
@@ -249,30 +208,21 @@ def gpu_worker(local_rank, node, args):
         print('pytorch {}'.format(torch.__version__))
         pprint(vars(args))
         sys.stdout.flush()
-
-    if args.adv:
-        args.instance_noise = InstanceNoise(args.instance_noise,
-                                            args.instance_noise_batches)
-
+        
     for epoch in range(start_epoch, args.epochs):
         train_sampler.set_epoch(epoch)
 
         train_loss = train(epoch, train_loader,
-            model, criterion, optimizer, scheduler,
-            adv_model, adv_criterion, adv_optimizer, adv_scheduler,
-            logger, device, args)
+            model, criterion, optimizer, scheduler, logger, device, args)
         epoch_loss = train_loss
 
         if args.val:
             val_loss = validate(epoch, val_loader,
-                model, criterion, adv_model, adv_criterion,
-                logger, device, args)
+                model, criterion, logger, device, args)
             #epoch_loss = val_loss
 
-        if args.reduce_lr_on_plateau and epoch >= args.adv_start:
-            scheduler.step(epoch_loss[0])
-            if args.adv:
-                adv_scheduler.step(epoch_loss[0])
+        if args.reduce_lr_on_plateau:
+            scheduler.step(epoch_loss[0]* epoch_loss[1])
 
         if rank == 0:
             logger.flush()
@@ -289,12 +239,6 @@ def gpu_worker(local_rank, node, args):
                 'rng': torch.get_rng_state(),
                 'min_loss': min_loss,
             }
-            if args.adv:
-                state.update({
-                    'adv_model': adv_model.module.state_dict(),
-                    'adv_optimizer': adv_optimizer.state_dict(),
-                    'adv_scheduler': adv_scheduler.state_dict(),
-                })
 
             state_file = 'state_{}.pt'.format(epoch + 1)
             torch.save(state, state_file)
@@ -307,45 +251,33 @@ def gpu_worker(local_rank, node, args):
     dist.destroy_process_group()
 
 
-def train(epoch, loader, model, criterion, optimizer, scheduler,
-        adv_model, adv_criterion, adv_optimizer, adv_scheduler,
-        logger, device, args):
+def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device, args):
     model.train()
-    if args.adv:
-        adv_model.train()
+
     print(torch.version.cuda, '------ cuda version -------')
     rank = dist.get_rank()
     world_size = dist.get_world_size()
 
-    if (args.log_interval <= args.adv_wgan_gp_interval
-        or args.adv_wgan_gp_interval < 1):
-        adv_wgan_gp_log_interval = args.log_interval
-    else:
-        adv_wgan_gp_log_interval = (
-            args.log_interval // args.adv_wgan_gp_interval
-            * args.adv_wgan_gp_interval)
-
-    # loss, loss_adv, adv_loss, adv_loss_fake, adv_loss_real
-    # loss: generator (model) supervised loss
-    # loss_adv: generator (model) adversarial loss
-    # adv_loss: discriminator (adv_model) loss
-    epoch_loss = torch.zeros(5, dtype=torch.float64, device=device)
-    fake = torch.zeros([1], dtype=torch.float32, device=device)
-    real = torch.ones([1], dtype=torch.float32, device=device)
-    adv_real = torch.full([1], args.adv_label_smoothing, dtype=torch.float32,
-            device=device)
+    epoch_loss = torch.zeros(8, dtype=torch.float64, device=device)
 
     for i, data in enumerate(loader):
         batch = epoch * len(loader) + i + 1
 
         input, target, style = data['input'], data['target'], data['style']
+        early_noise, noise0, noise1, noise2 = data['early_noise'], data['noise0'], data['noise1'], data['noise2']
+        
+        early_noise = early_noise.to(device, non_blocking=True)
+        noise0 = noise0.to(device, non_blocking=True)
+        noise1 = noise1.to(device, non_blocking=True)
+        noise2 = noise2.to(device, non_blocking=True)
+        
 
         input = input.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
         style = style.to(device, non_blocking=True)
         
         #print(input.shape, style.shape)
-        output = model(input, style)
+        output = model(input, style, early_noise, noise0, noise1, noise2)
         if batch <= 5 and rank == 0:
             print('##### batch :', batch)
             print('input shape :', input.shape)
@@ -360,292 +292,140 @@ def train(epoch, loader, model, criterion, optimizer, scheduler,
         if batch <= 5 and rank == 0:
             print('narrowed shape :', output.shape, flush=True)
 
-        loss = criterion(output, target)
-        # print('----- after trainin criterion -----')
-        # print(output.requires_grad, 'check require output gradient in training')
-        # print(target.requires_grad, 'check require target gradient in training')
-        epoch_loss[0] += loss.detach()
-
-        if args.adv and epoch >= args.adv_start:
-            noise_std = args.instance_noise.std()
-            if noise_std > 0:
-                noise = noise_std * torch.randn_like(output)
-                output = output + noise
-                noise = noise_std * torch.randn_like(target)
-                target = target + noise
-                del noise
-
-            lag_out = output[:, :3]
-            eul_out = lag2eul(lag_out, a=np.float(style))[0]
-            lag_tgt = target[:, :3]
-            eul_tgt = lag2eul(lag_tgt, a=np.float(style))[0]
-            
-            output = torch.cat([eul_out, output], dim=1)
-            target = torch.cat([eul_tgt, target], dim=1)
-            
-            
-            if args.cgan:
-                output = torch.cat([input, output], dim=1)
-                target = torch.cat([input, target], dim=1)
-            # if output.requires_grad is not True:
-            #     output.requires_grad_(True)
-            # if target.requires_grad is not True:
-            #     target.requires_grad_(True)
-            # print('----- after set requires grad -----')
-            # print(output.requires_grad, 'check require output gradient in training')
-            # print(target.requires_grad, 'check require target gradient in training')
-                
-            # check require grad
-            # assert target.requires_grad == True
-            # assert output.requires_grad == True
-            # discriminator
-            set_requires_grad(adv_model, True)
-
-            score_out = adv_model(output.detach(), style=style)
-            adv_loss_fake = adv_criterion(score_out, fake.expand_as(score_out))
-            epoch_loss[3] += adv_loss_fake.item()
-
-
-            adv_optimizer.zero_grad()
-            adv_loss_fake.backward()
-
-            score_tgt = adv_model(target, style=style)
-            adv_loss_real = adv_criterion(score_tgt, adv_real.expand_as(score_tgt))
-            epoch_loss[4] += adv_loss_real.item()
-
-
-            adv_loss_real.backward()
-
-            adv_loss = adv_loss_fake + adv_loss_real
-            epoch_loss[2] += adv_loss.item()
-
-            if (args.adv_wgan_gp_interval > 0
-                and  batch % args.adv_wgan_gp_interval == 0):
-                adv_loss_reg = wgan_grad_penalty(adv_model, output, target, style=style)
-                adv_loss_reg_ = adv_loss_reg * args.adv_wgan_gp_interval
-
-                adv_loss_reg_.backward()
-
-                if batch % adv_wgan_gp_log_interval == 0 and rank == 0:
-                    logger.add_scalar(
-                        'loss/batch/train/adv/reg',
-                        adv_loss_reg.item(),
-                        global_step=batch,
-                    )
-
-            adv_optimizer.step()
-            adv_grads = get_grads(adv_model)
-
-            # generator adversarial loss
-            if batch % args.adv_iter_ratio == 0:
-                set_requires_grad(adv_model, False)
-
-                score_out = adv_model(output, style=style)
-                loss_adv = adv_criterion(score_out, real.expand_as(score_out))
-                epoch_loss[1] += args.adv_iter_ratio * loss_adv.item()
-
-                optimizer.zero_grad()
-                loss_adv.backward()
-                optimizer.step()
-                grads = get_grads(model)
-        else:
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            grads = get_grads(model)
-
+        disp_lag_out, disp_lag_tgt = output[:, :3], target[:, :3]
+        
+        disp_eul_out, disp_eul_tgt = lag2eul(disp_lag_out, a=np.float(style))[0], lag2eul(disp_lag_tgt, a=np.float(style))[0]
+        
+        
+        # loss for displacement
+        disp_lag_loss = criterion(disp_lag_out, disp_lag_tgt)
+        disp_eul_loss = criterion(disp_eul_out, disp_eul_tgt)
+        disp_loss = disp_lag_loss **3 * disp_eul_loss
+        
+        epoch_loss[0] += disp_lag_loss.detach()
+        epoch_loss[1] += disp_eul_loss.detach()
+        epoch_loss[2] += disp_loss.detach()
+        
+        # loss for velocity
+        vel_lag_out, vel_lag_tgt = output[:, 3:], target[:, 3:]
+        
+        vel_eul_out, vel_eul_tgt = lag2eul(disp_lag_tgt, val=vel_lag_out, a=np.float(style))[0], lag2eul(disp_lag_tgt, val=vel_lag_tgt, a=np.float(style))[0]
+        
+        sqrt2 = 1.41421356237
+        lag2_out = torch.stack([
+            vel_lag_out[:, 0] ** 2,
+            vel_lag_out[:, 1] ** 2,
+            vel_lag_out[:, 2] ** 2,
+            sqrt2 * vel_lag_out[:, 0] * vel_lag_out[:, 1],
+            sqrt2 * vel_lag_out[:, 1] * vel_lag_out[:, 2],
+            sqrt2 * vel_lag_out[:, 2] * vel_lag_out[:, 0],
+        ], dim=1)
+        lag2_tgt = torch.stack([
+            vel_lag_tgt[:, 0] ** 2,
+            vel_lag_tgt[:, 1] ** 2,
+            vel_lag_tgt[:, 2] ** 2,
+            sqrt2 * vel_lag_tgt[:, 0] * vel_lag_tgt[:, 1],
+            sqrt2 * vel_lag_tgt[:, 1] * vel_lag_tgt[:, 2],
+            sqrt2 * vel_lag_tgt[:, 2] * vel_lag_tgt[:, 0],
+        ], dim=1)
+        
+        vel_eul2_out, vel_eul2_tgt = lag2eul(disp_lag_tgt, val=lag2_out, a=np.float(style))[0], lag2eul(disp_lag_tgt, val=lag2_tgt, a=np.float(style))[0]
+        
+        vel_lag_loss = criterion(vel_lag_out, vel_lag_tgt)
+        vel_eul_loss = criterion(vel_eul_out, vel_eul_tgt)
+        vel_eul2_loss = criterion(vel_eul2_out, vel_eul2_tgt)
+        vel_loss = vel_lag_loss * vel_eul_loss * vel_eul2_loss
+        
+        epoch_loss[3] += vel_lag_loss.detach()
+        epoch_loss[4] += vel_eul_loss.detach()
+        epoch_loss[5] += vel_eul2_loss.detach()
+        epoch_loss[6] += vel_loss.detach()
+        
+        optimizer.zero_grad()
+        loss = torch.log(disp_loss) + torch.log(vel_loss)
+        epoch_loss[7] += loss.detach()
+        loss.backward()
+        optimizer.step()
+        
+        grad = get_grads(model)
+        
+        
         if batch % args.log_interval == 0:
+            
             dist.all_reduce(loss)
+            dist.all_reduce(disp_lag_loss)
+            dist.all_reduce(disp_eul_loss)
+            dist.all_reduce(disp_loss)
+            dist.all_reduce(vel_lag_loss)
+            dist.all_reduce(vel_eul_loss)
+            dist.all_reduce(vel_eul2_loss)
+            dist.all_reduce(vel_loss)
+            
             loss /= world_size
+            disp_lag_loss /= world_size
+            disp_eul_loss /= world_size
+            disp_loss /= world_size
+            vel_lag_loss /= world_size
+            vel_eul_loss /= world_size
+            vel_eul2_loss /= world_size
+            vel_loss /= world_size
+            
             if rank == 0:
-                logger.add_scalar('loss/batch/train', loss.item(),
-                                  global_step=batch)
-                if args.adv and epoch >= args.adv_start:
-                    logger.add_scalar('loss/batch/train/adv/G', loss_adv.item(),
-                                      global_step=batch)
-                    logger.add_scalars(
-                        'loss/batch/train/adv/D',
-                        {
-                            'total': adv_loss.item(),
-                            'fake': adv_loss_fake.item(),
-                            'real': adv_loss_real.item(),
-                        },
-                        global_step=batch,
-                    )
-
-                logger.add_scalar('grad/first', grads[0], global_step=batch)
-                logger.add_scalar('grad/last', grads[-1], global_step=batch)
-                if args.adv and epoch >= args.adv_start:
-                    logger.add_scalar('grad/adv/first', adv_grads[0],
-                                      global_step=batch)
-                    logger.add_scalar('grad/adv/last', adv_grads[-1],
-                                      global_step=batch)
-
-                    if noise_std > 0:
-                        logger.add_scalar('instance_noise', noise_std,
-                                          global_step=batch)
+                logger.add_scalar('loss/batch/train/disp/lag', disp_lag_loss.item(),
+                                  global_step=epoch*len(loader)+batch)
+                logger.add_scalar('loss/batch/train/disp/eul', disp_eul_loss.item(),
+                                  global_step=epoch*len(loader)+batch)
+                logger.add_scalar('loss/batch/train/vel/lag', vel_lag_loss.item(),
+                                    global_step=epoch*len(loader)+batch)
+                logger.add_scalar('loss/batch/train/vel/eul', vel_eul_loss.item(),
+                                    global_step=epoch*len(loader)+batch)
+                logger.add_scalar('loss/batch/train/vel/eul2', vel_eul2_loss.item(),
+                                    global_step=epoch*len(loader)+batch)
+                
+                logger.add_scalar('grad/first', grad[0], global_step=epoch*len(loader)+batch)
+                logger.add_scalar('grad/last', grad[-1], global_step=epoch*len(loader)+batch)
+                
 
     dist.all_reduce(epoch_loss)
     epoch_loss /= len(loader) * world_size
     if rank == 0:
-        logger.add_scalar('loss/epoch/train', epoch_loss[0],
+        logger.add_scalar('loss/epoch/train/disp/lag', epoch_loss[0],
                           global_step=epoch+1)
-        if args.adv and epoch >= args.adv_start:
-            logger.add_scalar('loss/epoch/train/adv/G', epoch_loss[1],
-                              global_step=epoch+1)
-            logger.add_scalars(
-                'loss/epoch/train/adv/D',
-                {
-                    'total': epoch_loss[2],
-                    'fake': epoch_loss[3],
-                    'real': epoch_loss[4],
-                },
-                global_step=epoch+1,
-            )
-
-        if args.adv and epoch >= args.adv_start and args.cgan:
-            skip_chan = sum(args.in_chan)
-            output = output[:, skip_chan:]
-            target = target[:, skip_chan:]
-
-        # metric_score = score(
-        #     output, target,
-        #     labels = ['output', 'target'],
-        # )
-
-        # logger.add_scalar('loss/epoch/train/score', metric_score, global_step=epoch+1)
-
-        # print('------input shape before power--------', input.shape)
-        # print('------output shape before power--------', output.shape)
-        # print('------target shape before power--------', target.shape)
-
-        # fig = plt_slices(
-        #     input[-1], output[-1], target[-1], output[-1] - target[-1],
-        #     title=['in', 'out', 'tgt', 'out - tgt'],
-        #     **args.misc_kwargs,
-        # )
-        # logger.add_figure('fig/train', fig, global_step=epoch+1)
-        # fig.clf()
-
-        # fig = plt_power(
-        #     input, output, target,
-        #     label=['in', 'out', 'tgt'],
-        #     **args.misc_kwargs,
-        # )
-        # logger.add_figure('fig/train/power/lag', fig, global_step=epoch+1)
-        # fig.clf()
-        # torch.cuda.memory_snapshot()
-
-        #fig = plt_power(1.0,
-        #    dis=[input, output, target],
-        #    label=['in', 'out', 'tgt'],
-        #    **args.misc_kwargs,
-        #)
-        #logger.add_figure('fig/train/power/eul', fig, global_step=epoch+1)
-        #fig.clf()
-
-    return epoch_loss
-
-
-def validate(epoch, loader, model, criterion, adv_model, adv_criterion,
-        logger, device, args):
-    model.eval()
-    if args.adv:
-        adv_model.eval()
-
-    rank = dist.get_rank()
-    world_size = dist.get_world_size()
-
-    epoch_loss = torch.zeros(5, dtype=torch.float64, device=device)
-    fake = torch.zeros([1], dtype=torch.float32, device=device)
-    real = torch.ones([1], dtype=torch.float32, device=device)
-
-    with torch.no_grad():
-        for data in loader:
-            input, target, style = data['input'], data['target'], data['style']
-
-            input = input.to(device, non_blocking=True)
-            target = target.to(device, non_blocking=True)
-            style = style.to(device, non_blocking=True)
-
-            output = model(input, style=style)
-
-            if (hasattr(model.module, 'scale_factor')
-                    and model.module.scale_factor != 1):
-                input = resample(input, model.module.scale_factor, narrow=False)
-            input, output, target = narrow_cast(input, output, target)
-
-            loss = criterion(output, target)
-            epoch_loss[0] += loss.detach()
-
-            if args.adv and epoch >= args.adv_start:
-                if args.cgan:
-                    output = torch.cat([input, output], dim=1)
-                    target = torch.cat([input, target], dim=1)
-
-                # discriminator
-                score_out = adv_model(output, style=style)
-                adv_loss_fake = adv_criterion(score_out, fake.expand_as(score_out))
-                epoch_loss[3] += adv_loss_fake.detach()
-
-                score_tgt = adv_model(target, style=style)
-                adv_loss_real = adv_criterion(score_tgt, real.expand_as(score_tgt))
-                epoch_loss[4] += adv_loss_real.detach()
-
-                adv_loss = adv_loss_fake + adv_loss_real
-                epoch_loss[2] += adv_loss.detach()
-
-                # generator adversarial loss
-                loss_adv = adv_criterion(score_out, real.expand_as(score_out))
-                epoch_loss[1] += loss_adv.detach()
-
-    dist.all_reduce(epoch_loss)
-    epoch_loss /= len(loader) * world_size
-    if rank == 0:
-        logger.add_scalar('loss/epoch/val', epoch_loss[0],
-                          global_step=epoch+1)
-        if args.adv and epoch >= args.adv_start:
-            logger.add_scalar('loss/epoch/val/adv/G', epoch_loss[1],
-                              global_step=epoch+1)
-            logger.add_scalars(
-                'loss/epoch/val/adv/D',
-                {
-                    'total': epoch_loss[2],
-                    'fake': epoch_loss[3],
-                    'real': epoch_loss[4],
-                },
-                global_step=epoch+1,
-            )
-
-        if args.adv and epoch >= args.adv_start and args.cgan:
-            skip_chan = sum(args.in_chan)
-            output = output[:, skip_chan:]
-            target = target[:, skip_chan:]
-
+        logger.add_scalar('loss/epoch/train/disp/eul', epoch_loss[1],
+                            global_step=epoch+1)
+        logger.add_scalar('loss/epoch/train/disp', epoch_loss[2],
+                            global_step=epoch+1)
+        logger.add_scalar('loss/epoch/train/vel/lag', epoch_loss[3],
+                            global_step=epoch+1)
+        logger.add_scalar('loss/epoch/train/vel/eul', epoch_loss[4],
+                            global_step=epoch+1)
+        logger.add_scalar('loss/epoch/train/vel/eul2', epoch_loss[5],
+                            global_step=epoch+1)
+        logger.add_scalar('loss/epoch/train/vel', epoch_loss[6],
+                            global_step=epoch+1)
+        logger.add_scalar('loss/epoch/train', epoch_loss[7],
+                            global_step=epoch+1)
+        
         fig = plt_slices(
-            input[-1], output[-1], target[-1], output[-1] - target[-1],
-            title=['in', 'out', 'tgt', 'out - tgt'],
+            input[-1], 
+            disp_lag_out[-1], disp_lag_tgt[-1], disp_lag_out[-1] - disp_lag_tgt[-1],
+            disp_eul_out[-1], disp_eul_tgt[-1], disp_eul_out[-1] - disp_eul_tgt[-1],
+            vel_lag_out[-1], vel_lag_tgt[-1], vel_lag_out[-1] - vel_lag_tgt[-1],
+            vel_eul_out[-1], vel_eul_tgt[-1], vel_eul_out[-1] - vel_eul_tgt[-1],
+            vel_eul2_out[-1], vel_eul2_tgt[-1], vel_eul2_out[-1] - vel_eul2_tgt[-1],
+            title=['in', 
+                   'disp_lag_out', 'disp_lag_tgt', 'disp_lag_diff',
+                   'disp_eul_out', 'disp_eul_tgt', 'disp_eul_diff',
+                   'vel_lag_out', 'vel_lag_tgt', 'vel_lag_diff',
+                   'vel_eul_out', 'vel_eul_tgt', 'vel_eul_diff',
+                   'vel_eul2_out', 'vel_eul2_tgt', 'vel_eul2_diff',
+                   ],
             **args.misc_kwargs,
         )
-        logger.add_figure('fig/val', fig, global_step=epoch+1)
+        
+        logger.add_figure('fig/train', fig, global_step=epoch+1)
         fig.clf()
-
-        fig = plt_power(
-            input, output, target,
-            label=['in', 'out', 'tgt'],
-            **args.misc_kwargs,
-        )
-        logger.add_figure('fig/val/power/lag', fig, global_step=epoch+1)
-        fig.clf()
-
-        #fig = plt_power(1.0,
-        #    dis=[input, output, target],
-        #    label=['in', 'out', 'tgt'],
-        #    **args.misc_kwargs,
-        #)
-        #logger.add_figure('fig/val/power/eul', fig, global_step=epoch+1)
-        #fig.clf()
-
+    
     return epoch_loss
 
 

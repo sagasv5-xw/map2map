@@ -4,24 +4,10 @@ import torch
 from ..data.norms.cosmology import D
 
 
-
-
-def pixel_shuffle_3d_inv(x, r):
-    """
-    Rearranges tensor x with shape ``[B,C,H,W,D]`` 
-    to a tensor of shape ``[B,C*r*r*r,H/r,W/r,D/r]``.
-    """
-    [B, C, H, W, D] = list(x.size())
-    x = x.contiguous().view(B, C, H//r, r, W//r, r, D//r, r)
-    x = x.permute(0, 1, 3, 5, 7, 2, 4, 6)
-    x = x.contiguous().view(B, C*(r**3), H//r, W//r, D//r)
-    return x
-
-
 def lag2eul(
         dis,
         val=1.0,
-        eul_scale_factor=2,
+        eul_scale_factor=1,
         eul_pad=0,
         rm_dis_mean=True,
         periodic=False,
@@ -101,11 +87,11 @@ def lag2eul(
         pos = (d - d_mean) * dis_norm
         del d
 
-        pos[:, 0] += torch.arange(0.5, DHW[0] - 2 * eul_pad, eul_scale_factor,
+        pos[:, 0] += torch.arange(0, DHW[0] - 2 * eul_pad, eul_scale_factor,
                                   dtype=dtype, device=device)[:, None, None]
-        pos[:, 1] += torch.arange(0.5, DHW[1] - 2 * eul_pad, eul_scale_factor,
+        pos[:, 1] += torch.arange(0, DHW[1] - 2 * eul_pad, eul_scale_factor,
                                   dtype=dtype, device=device)[:, None]
-        pos[:, 2] += torch.arange(0.5, DHW[2] - 2 * eul_pad, eul_scale_factor,
+        pos[:, 2] += torch.arange(0, DHW[2] - 2 * eul_pad, eul_scale_factor,
                                   dtype=dtype, device=device)
 
         pos = pos.contiguous().view(N, 3, -1, 1)  # last axis for neighbors
@@ -144,11 +130,6 @@ def lag2eul(
                 src = src[:, mask]
 
             mesh[n].view(C, -1).index_add_(1, ind, src)
-        
-        if eul_scale_factor > 1:
-            #print(mesh.shape,'before shuffle')
-            mesh = pixel_shuffle_3d_inv(mesh, eul_scale_factor)
-            #print(mesh.shape,'after shuffle')
 
         out.append(mesh)
 

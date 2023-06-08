@@ -61,6 +61,10 @@ def add_common_args(parser):
             help='size to pad the target data beyond the crop size, assuming '
             'periodic boundary condition, useful for super-resolution. '
             'Comma-sep. list with the same format as --in-pad')
+    parser.add_argument('--noise-pad',default=4, type=int_tuple,
+                        help='size to pad the noise data beyond the crop size, assuming '
+                                    'periodic boundary condition, useful for super-resolution. '
+                                        'Comma-sep. list with the same format as --in-pad')
     parser.add_argument('--scale-factor', default=1, type=int,
             help='upsampling factor for super-resolution, in which case '
             'crop and pad are sizes of the input resolution')
@@ -102,6 +106,14 @@ def add_train_args(parser):
             help='comma-sep. list of glob patterns for training input data')
     parser.add_argument('--train-tgt-patterns', type=str_list, required=True,
             help='comma-sep. list of glob patterns for training target data')
+    parser.add_argument('--train-early-noise-patterns', type=str_list, required=True,
+                help='comma-sep. list of glob patterns for training early noise data')
+    parser.add_argument('--train-noise0-patterns', type=str_list, required=True,
+                        help='comma-sep. list of glob patterns for training noise0 data')
+    parser.add_argument('--train-noise1-patterns', type=str_list, required=True,
+                        help='comma-sep. list of glob patterns for training noise1 data')
+    parser.add_argument('--train-noise2-patterns', type=str_list, required=True,
+                        help='comma-sep. list of glob patterns for training noise2 data')
     parser.add_argument('--train-style-pattern', type=str,
             help='glob pattern for training data styles')
     parser.add_argument('--val-in-patterns', type=str_list,

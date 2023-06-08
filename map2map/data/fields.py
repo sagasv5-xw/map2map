@@ -46,34 +46,88 @@ class FieldDataset(Dataset):
     the input for super-resolution, in which case `crop` and `pad` are sizes of
     the input resolution.
     """
-    def __init__(self, in_patterns, tgt_patterns, style_pattern=None,
-                 in_norms=None, tgt_norms=None, callback_at=None,
-                 augment=False, aug_shift=None, aug_add=None, aug_mul=None,
-                 crop=None, crop_start=None, crop_stop=None, crop_step=None,
-                 in_pad=0, tgt_pad=0, scale_factor=1,
-                 **kwargs):
-        #you can adjust the random seed to randomize the in pattern sequence
+    def __init__(self,
+                 in_patterns,
+                 tgt_patterns,
+                 early_noise_patterns=None, # normalized noise patterns from initial conditions, same size as the input field
+                 noise_patterns0=None, # normalized noise patterns, upsampled to 2x the input field size, padding=4
+                 noise_patterns1=None, # normalized noise patterns, upsampled to 4x the input field size, padding=4
+                 noise_patterns2=None, # normalized noise patterns, upsampled to 8x the input field size, padding=4
+                 style_pattern=None,
+                 in_norms=None, 
+                 tgt_norms=None,
+                 callback_at=None,
+                 augment=False,
+                 aug_shift=None,
+                 aug_add=None,
+                 aug_mul=None,
+                 crop=None,
+                 crop_start=None,
+                 crop_stop=None,
+                 crop_step=None,
+                 in_pad=0,
+                 tgt_pad=0,
+                 noise_pad=4,# padding for noise patterns, default is 4
+                 scale_factor=1,
+                 **kwargs
+                 ):
         sampling = True
+        sample_snaps = 64
+        
         in_file_lists = [sorted(glob(p)) for p in in_patterns]
-
         num_snapshots = len(in_file_lists[0])
-        sample_idx = list(WeightedRandomSampler(weights=torch.ones(num_snapshots), num_samples= min(64, num_snapshots), replacement=False))
-
+        sample_idx = list(WeightedRandomSampler(weights=torch.ones(num_snapshots), num_samples= min(sample_snaps, num_snapshots), replacement=False))
+        
+        # ------------------------ load date with sampling ------------------------
+        
+        # load input fields
         if sampling:
             sampled_in_list = [[x[i] for i in sample_idx] for x in in_file_lists]
             self.in_files = list(zip(* sampled_in_list))
         else:
             self.in_files = list(zip(*in_file_lists))
-
+        
+        # load target fields
         tgt_file_lists = [sorted(glob(p)) for p in tgt_patterns]
-
         if sampling:
             sampled_tgt_list = [[x[i] for i in sample_idx] for x in tgt_file_lists]
             self.tgt_files = list(zip(* sampled_tgt_list))
         else:
             self.tgt_files = list(zip(*tgt_file_lists))
+        
+        # load early noise fields
+        early_noise_lists = [sorted(glob(p)) for p in early_noise_patterns]
+        if sampling:
+            sampled_early_noise_list = [[x[i] for i in sample_idx] for x in early_noise_lists]
+            self.early_noise_files = list(zip(* sampled_early_noise_list))
+        else:
+            self.early_noise_files = list(zip(*early_noise_lists))
+        
+        # load noise fields
+        noise_lists0 = [sorted(glob(p)) for p in noise_patterns0]
+        if sampling:
+            sampled_noise_list0 = [[x[i] for i in sample_idx] for x in noise_lists0]
+            self.noise0_files = list(zip(* sampled_noise_list0))
+        else:
+            self.noise0_files = list(zip(*noise_lists0))
+            
+        noise_lists1 = [sorted(glob(p)) for p in noise_patterns1]
+        if sampling:
+            sampled_noise_list1 = [[x[i] for i in sample_idx] for x in noise_lists1]
+            self.noise1_files = list(zip(* sampled_noise_list1))
+        else:
+            self.noise1_files = list(zip(*noise_lists1))
+            
+        noise_lists2 = [sorted(glob(p)) for p in noise_patterns2]
+        if sampling:
+            sampled_noise_list2 = [[x[i] for i in sample_idx] for x in noise_lists2]
+            self.noise2_files = list(zip(* sampled_noise_list2))
+        else:
+            self.noise_files2 = list(zip(*noise_lists2))
+        
+        # ------------------------ end loading data ------------------------
 
-        if len(self.in_files) != len(self.tgt_files):
+        if len(self.in_files) != len(self.tgt_files) != len(self.early_noise_files) != len(self.noise0_files) != len(self.noise1_files) != len(self.noise2_files):
             raise ValueError('number of input and target fields do not match')
         self.nfile = len(self.in_files)
 
@@ -160,6 +214,7 @@ class FieldDataset(Dataset):
             return pad.reshape(ndim, 2)
         self.in_pad = format_pad(in_pad, self.ndim)
         self.tgt_pad = format_pad(tgt_pad, self.ndim)
+        self.noise_pad = format_pad(noise_pad, self.ndim)
 
         if scale_factor != 1:
             tgt_size = np.load(self.tgt_files[0][0], mmap_mode='r').shape[1:]
@@ -196,6 +251,15 @@ class FieldDataset(Dataset):
                      for f in self.in_files[ifile]]
         tgt_fields = [np.load(f, mmap_mode=mmap_mode)
                       for f in self.tgt_files[ifile]]
+        
+        early_noise_fields = [np.load(f, mmap_mode=mmap_mode)
+                              for f in self.early_noise_files[ifile]]
+        noise0_fields = [np.load(f, mmap_mode=mmap_mode)
+                            for f in self.noise0_files[ifile]]
+        noise1_fields = [np.load(f, mmap_mode=mmap_mode)
+                            for f in self.noise1_files[ifile]]
+        noise2_fields = [np.load(f, mmap_mode=mmap_mode)
+                            for f in self.noise2_files[ifile]]
 
         anchor = self.anchors[icrop]
 
@@ -220,11 +284,32 @@ class FieldDataset(Dataset):
         crop(tgt_fields, anchor * self.scale_factor,
              self.crop[argsort_perm_axes] * self.scale_factor,
              self.tgt_pad[argsort_perm_axes])
+        crop(early_noise_fields, anchor,
+             self.crop[argsort_perm_axes],
+             self.in_pad[argsort_perm_axes])
+        crop(noise0_fields, anchor * 2,
+             self.crop[argsort_perm_axes] * 2,
+             self.noise_pad[argsort_perm_axes])
+        crop(noise1_fields, anchor * 4,
+                self.crop[argsort_perm_axes] * 4,
+                self.noise_pad[argsort_perm_axes])
+        crop(noise2_fields, anchor * 8,
+                self.crop[argsort_perm_axes] * 8,
+                self.noise_pad[argsort_perm_axes])
+        
 
         in_fields = [torch.from_numpy(f.astype(np.float32))
                      for f in in_fields]
         tgt_fields = [torch.from_numpy(f.astype(np.float32))
                       for f in tgt_fields]
+        early_noise_fields = [torch.from_numpy(f.astype(np.float32))
+                                for f in early_noise_fields]
+        noise0_fields = [torch.from_numpy(f.astype(np.float32))
+                            for f in noise0_fields]
+        noise1_fields = [torch.from_numpy(f.astype(np.float32))
+                            for f in noise1_fields]
+        noise2_fields = [torch.from_numpy(f.astype(np.float32))
+                            for f in noise2_fields]
 
         style = torch.empty(0, dtype=torch.float32)
         if self.style:
@@ -244,20 +329,44 @@ class FieldDataset(Dataset):
         if self.augment:
             flip_axes = flip(in_fields, None, self.ndim)
             flip_axes = flip(tgt_fields, flip_axes, self.ndim)
+            
+            flip_axes = flip(early_noise_fields, flip_axes, self.ndim)
+            flip_axes = flip(noise0_fields, flip_axes, self.ndim)
+            flip_axes = flip(noise1_fields, flip_axes, self.ndim)
+            flip_axes = flip(noise2_fields, flip_axes, self.ndim)
 
             perm_axes = perm(in_fields, perm_axes, self.ndim)
             perm_axes = perm(tgt_fields, perm_axes, self.ndim)
+            
+            perm_axes = perm(early_noise_fields, perm_axes, self.ndim)
+            perm_axes = perm(noise0_fields, perm_axes, self.ndim)
+            perm_axes = perm(noise1_fields, perm_axes, self.ndim)
+            perm_axes = perm(noise2_fields, perm_axes, self.ndim)
 
         if self.aug_add is not None:
             add_fac = add(in_fields, None, self.aug_add)
             add_fac = add(tgt_fields, add_fac, self.aug_add)
+            
+            add_fac = add(early_noise_fields, add_fac, self.aug_add)
+            add_fac = add(noise0_fields, add_fac, self.aug_add)
+            add_fac = add(noise1_fields, add_fac, self.aug_add)
 
         if self.aug_mul is not None:
             mul_fac = mul(in_fields, None, self.aug_mul)
             mul_fac = mul(tgt_fields, mul_fac, self.aug_mul)
+            
+            mul_fac = mul(early_noise_fields, mul_fac, self.aug_mul)
+            mul_fac = mul(noise0_fields, mul_fac, self.aug_mul)
+            mul_fac = mul(noise1_fields, mul_fac, self.aug_mul)
+            mul_fac = mul(noise2_fields, mul_fac, self.aug_mul)
 
         in_fields = torch.cat(in_fields, dim=0)
         tgt_fields = torch.cat(tgt_fields, dim=0)
+        
+        early_noise_fields = torch.cat(early_noise_fields, dim=0)
+        noise0_fields = torch.cat(noise0_fields, dim=0)
+        noise1_fields = torch.cat(noise1_fields, dim=0)
+        noise2_fields = torch.cat(noise2_fields, dim=0)
 
         #in_relpath = [os.path.relpath(file, start=self.commonpath)
         #              for file in self.in_files[ifile]]
@@ -268,6 +377,10 @@ class FieldDataset(Dataset):
             'input': in_fields,
             'target': tgt_fields,
             'style': style,
+            'early_noise': early_noise_fields,
+            'noise0': noise0_fields,
+            'noise1': noise1_fields,
+            'noise2': noise2_fields,
             #'input_relpath': in_relpath,
             'target_relpath': tgt_relpath,
         }
