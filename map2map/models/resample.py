@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .narrow import narrow_by
+from narrow import narrow_by
 
 
 def resample(x, scale_factor, narrow=True):
@@ -22,7 +22,6 @@ def resample(x, scale_factor, narrow=True):
 
 class Resampler(nn.Module):
     """Resampling, upsampling or downsampling.
-
     By default discard the inaccurate edges when upsampling.
     """
     def __init__(self, ndim, scale_factor, narrow=True):
