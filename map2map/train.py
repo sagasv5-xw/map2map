@@ -255,13 +255,22 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
     model.train()
 
     print(torch.version.cuda, '------ cuda version -------')
+    
     rank = dist.get_rank()
     world_size = dist.get_world_size()
 
     epoch_loss = torch.zeros(8, dtype=torch.float64, device=device)
 
     for i, data in enumerate(loader):
+        
         batch = epoch * len(loader) + i + 1
+        
+        def bytes2gb(bytes):
+            gb = bytes / 1024 / 1024 / 1024
+            return '{:.2f} GB'.format(gb)
+        
+        if batch % 1000 == 0 and rank == 0:
+            print(bytes2gb(torch.cuda.max_memory_allocated()))
 
         input, target, style = data['input'], data['target'], data['style']
         early_noise, noise0, noise1, noise2 = data['early_noise'], data['noise0'], data['noise1'], data['noise2']
@@ -284,6 +293,11 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
             print('output shape :', output.shape)
             print('target shape :', target.shape)
             print('style shape :', style.shape)
+            print('early_noise shape :', early_noise.shape)
+            print('noise0 shape :', noise0.shape)
+            print('noise1 shape :', noise1.shape)
+            print('noise2 shape :', noise2.shape)
+            print('#####')
 
         if (hasattr(model.module, 'scale_factor')
                 and model.module.scale_factor != 1):
@@ -372,18 +386,18 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
             
             if rank == 0:
                 logger.add_scalar('loss/batch/train/disp/lag', disp_lag_loss.item(),
-                                  global_step=epoch*len(loader)+batch)
+                                  global_step=batch)
                 logger.add_scalar('loss/batch/train/disp/eul', disp_eul_loss.item(),
-                                  global_step=epoch*len(loader)+batch)
+                                  global_step=batch)
                 logger.add_scalar('loss/batch/train/vel/lag', vel_lag_loss.item(),
-                                    global_step=epoch*len(loader)+batch)
+                                    global_step=batch)
                 logger.add_scalar('loss/batch/train/vel/eul', vel_eul_loss.item(),
-                                    global_step=epoch*len(loader)+batch)
+                                    global_step=batch)
                 logger.add_scalar('loss/batch/train/vel/eul2', vel_eul2_loss.item(),
-                                    global_step=epoch*len(loader)+batch)
+                                    global_step=batch)
                 
-                logger.add_scalar('grad/first', grad[0], global_step=epoch*len(loader)+batch)
-                logger.add_scalar('grad/last', grad[-1], global_step=epoch*len(loader)+batch)
+                logger.add_scalar('grad/first', grad[0], global_step=batch)
+                logger.add_scalar('grad/last', grad[-1], global_step=batch)
                 
 
     dist.all_reduce(epoch_loss)
