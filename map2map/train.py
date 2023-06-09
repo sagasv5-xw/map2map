@@ -172,8 +172,11 @@ def gpu_worker(local_rank, node, args):
             min_loss = None
     else:
         state = torch.load(args.load_state, map_location=device)
-
-        start_epoch = state['epoch']
+        
+        if 'epoch' in state:
+            start_epoch = state['epoch']
+        else:
+            start_epoch = 0
 
         load_model_state_dict(model.module, state['model'],
                               strict=args.load_state_strict)
@@ -218,14 +221,14 @@ def gpu_worker(local_rank, node, args):
 
 
         if args.reduce_lr_on_plateau:
-            scheduler.step(epoch_loss[0]* epoch_loss[1])
+            scheduler.step(epoch_loss[2]* epoch_loss[6])
 
         if rank == 0:
             logger.flush()
 
-            if ((min_loss is None or epoch_loss[0] < min_loss[0])
+            if ((min_loss is None or epoch_loss[7] < min_loss)
                     and epoch >= args.adv_start):
-                min_loss = epoch_loss
+                min_loss = epoch_loss[7]
 
             state = {
                 'epoch': epoch + 1,
@@ -265,7 +268,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
     else:
         set_requires_grad(model, requires_grad=True)
 
-    epoch_loss = torch.zeros(8, dtype=torch.float64, device=device)
+    epoch_loss = torch.zeros(9, dtype=torch.float64, device=device)
 
     for i, data in enumerate(loader):
         
@@ -274,6 +277,8 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
         def bytes2gb(bytes):
             gb = bytes / 1024 / 1024 / 1024
             return '{:.2f} GB'.format(gb)
+        
+        mem_used = bytes2gb(torch.cuda.max_memory_allocated())
         
         if batch % 1000 == 0 and rank == 0:
             print(bytes2gb(torch.cuda.max_memory_allocated()))
@@ -364,6 +369,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
         optimizer.zero_grad()
         loss = torch.log(disp_loss) + torch.log(vel_loss)
         epoch_loss[7] += loss.detach()
+        epoch_loss[8] += mem_used
         loss.backward()
         optimizer.step()
         
@@ -380,6 +386,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
             dist.all_reduce(vel_eul_loss)
             dist.all_reduce(vel_eul2_loss)
             dist.all_reduce(vel_loss)
+            dist.all_reduce(mem_used)
             
             loss /= world_size
             disp_lag_loss /= world_size
@@ -389,6 +396,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
             vel_eul_loss /= world_size
             vel_eul2_loss /= world_size
             vel_loss /= world_size
+            mem_used /= world_size
             
             if rank == 0:
                 logger.add_scalar('loss/batch/train/disp/lag', disp_lag_loss.item(),
@@ -401,6 +409,10 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
                                     global_step=batch)
                 logger.add_scalar('loss/batch/train/vel/eul2', vel_eul2_loss.item(),
                                     global_step=batch)
+                logger.add_scalar('loss/batch/train/total_loss', loss.item(),
+                                    global_step=batch)
+                logger.add_scalar('loss/batch/train/max_mem', mem_used.item(),
+                                  global_step=batch)
                 
                 logger.add_scalar('grad/first', grad[0], global_step=batch)
                 logger.add_scalar('grad/last', grad[-1], global_step=batch)
@@ -423,7 +435,9 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
                             global_step=epoch+1)
         logger.add_scalar('loss/epoch/train/vel', epoch_loss[6],
                             global_step=epoch+1)
-        logger.add_scalar('loss/epoch/train', epoch_loss[7],
+        logger.add_scalar('loss/epoch/train/total_loss', epoch_loss[7],
+                            global_step=epoch+1)
+        logger.add_scalar('loss/epoch/train/max_mem', epoch_loss[8],
                             global_step=epoch+1)
         
         fig = plt_slices(
