@@ -182,13 +182,13 @@ def gpu_worker(local_rank, node, args):
             optimizer.load_state_dict(state['optimizer'])
         if 'scheduler' in state:
             scheduler.load_state_dict(state['scheduler'])
+        if 'pretrained_layers' in state:
+            pretrained_layers = state['pretrained_layers']
 
         torch.set_rng_state(state['rng'].cpu())  # move rng state back
 
         if rank == 0:
             min_loss = state['min_loss']
-            if args.adv and 'adv_model' not in state:
-                min_loss = None  # restarting with adversary wipes the record
 
             print('state at epoch {} loaded from {}'.format(
                 state['epoch'], args.load_state), flush=True)
@@ -213,13 +213,9 @@ def gpu_worker(local_rank, node, args):
         train_sampler.set_epoch(epoch)
 
         train_loss = train(epoch, train_loader,
-            model, criterion, optimizer, scheduler, logger, device, args)
+            model, criterion, optimizer, scheduler, logger, device, args, pretrained_layers)
         epoch_loss = train_loss
 
-        if args.val:
-            val_loss = validate(epoch, val_loader,
-                model, criterion, logger, device, args)
-            #epoch_loss = val_loss
 
         if args.reduce_lr_on_plateau:
             scheduler.step(epoch_loss[0]* epoch_loss[1])
@@ -238,6 +234,7 @@ def gpu_worker(local_rank, node, args):
                 'scheduler': scheduler.state_dict(),
                 'rng': torch.get_rng_state(),
                 'min_loss': min_loss,
+                'pretrained_layers': pretrained_layers,
             }
 
             state_file = 'state_{}.pt'.format(epoch + 1)
@@ -251,13 +248,22 @@ def gpu_worker(local_rank, node, args):
     dist.destroy_process_group()
 
 
-def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device, args):
+def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device, args, pretrained_layers=None):
     model.train()
+    
+    use_pretrained = pretrained_layers is not None
 
     print(torch.version.cuda, '------ cuda version -------')
     
     rank = dist.get_rank()
     world_size = dist.get_world_size()
+    
+    if world_size == 1 and use_pretrained:
+        for name, param in model.named_parameters():
+            if name in pretrained_layers and param.requires_grad:
+                param.requires_grad = False
+    else:
+        set_requires_grad(model, requires_grad=True)
 
     epoch_loss = torch.zeros(8, dtype=torch.float64, device=device)
 

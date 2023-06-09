@@ -1,160 +1,134 @@
-+------------------------------------------+------------+
-|                 Modules                  | Parameters |
-+------------------------------------------+------------+
-|              block0.weight               |    3072    |
-|               block0.bias                |    512     |
-|       block0.style_block.0.weight        |     6      |
-|        block0.style_block.0.bias         |     6      |
-|               addnoise.std               |    512     |
-|           hblock0.conv1.weight           |  3538944   |
-|            hblock0.conv1.bias            |    256     |
-|    hblock0.conv1.style_block.0.weight    |    512     |
-|     hblock0.conv1.style_block.0.bias     |    512     |
-|          hblock0.addnoise1.std           |    256     |
-|           hblock0.conv2.weight           |  1769472   |
-|            hblock0.conv2.bias            |    256     |
-|    hblock0.conv2.style_block.0.weight    |    256     |
-|     hblock0.conv2.style_block.0.bias     |    256     |
-|          hblock0.addnoise2.std           |    256     |
-|           hblock0.proj.weight            |    1536    |
-|            hblock0.proj.bias             |     6      |
-|    hblock0.proj.style_block.0.weight     |    256     |
-|     hblock0.proj.style_block.0.bias      |    256     |
-|        hblock0.noise_proj1.weight        |    1536    |
-|         hblock0.noise_proj1.bias         |    256     |
-| hblock0.noise_proj1.style_block.0.weight |     6      |
-|  hblock0.noise_proj1.style_block.0.bias  |     6      |
-|        hblock0.noise_proj2.weight        |    1536    |
-|         hblock0.noise_proj2.bias         |    256     |
-| hblock0.noise_proj2.style_block.0.weight |     6      |
-|  hblock0.noise_proj2.style_block.0.bias  |     6      |
-|           hblock1.conv1.weight           |   884736   |
-|            hblock1.conv1.bias            |    128     |
-|    hblock1.conv1.style_block.0.weight    |    256     |
-|     hblock1.conv1.style_block.0.bias     |    256     |
-|          hblock1.addnoise1.std           |    128     |
-|           hblock1.conv2.weight           |   442368   |
-|            hblock1.conv2.bias            |    128     |
-|    hblock1.conv2.style_block.0.weight    |    128     |
-|     hblock1.conv2.style_block.0.bias     |    128     |
-|          hblock1.addnoise2.std           |    128     |
-|           hblock1.proj.weight            |    768     |
-|            hblock1.proj.bias             |     6      |
-|    hblock1.proj.style_block.0.weight     |    128     |
-|     hblock1.proj.style_block.0.bias      |    128     |
-|        hblock1.noise_proj1.weight        |    768     |
-|         hblock1.noise_proj1.bias         |    128     |
-| hblock1.noise_proj1.style_block.0.weight |     6      |
-|  hblock1.noise_proj1.style_block.0.bias  |     6      |
-|        hblock1.noise_proj2.weight        |    768     |
-|         hblock1.noise_proj2.bias         |    128     |
-| hblock1.noise_proj2.style_block.0.weight |     6      |
-|  hblock1.noise_proj2.style_block.0.bias  |     6      |
-|           hblock2.conv1.weight           |   221184   |
-|            hblock2.conv1.bias            |     64     |
-|    hblock2.conv1.style_block.0.weight    |    128     |
-|     hblock2.conv1.style_block.0.bias     |    128     |
-|          hblock2.addnoise1.std           |     64     |
-|           hblock2.conv2.weight           |   110592   |
-|            hblock2.conv2.bias            |     64     |
-|    hblock2.conv2.style_block.0.weight    |     64     |
-|     hblock2.conv2.style_block.0.bias     |     64     |
-|          hblock2.addnoise2.std           |     64     |
-|           hblock2.proj.weight            |    384     |
-|            hblock2.proj.bias             |     6      |
-|    hblock2.proj.style_block.0.weight     |     64     |
-|     hblock2.proj.style_block.0.bias      |     64     |
-|        hblock2.noise_proj1.weight        |    384     |
-|         hblock2.noise_proj1.bias         |     64     |
-| hblock2.noise_proj1.style_block.0.weight |     6      |
-|  hblock2.noise_proj1.style_block.0.bias  |     6      |
-|        hblock2.noise_proj2.weight        |    384     |
-|         hblock2.noise_proj2.bias         |     64     |
-| hblock2.noise_proj2.style_block.0.weight |     6      |
-|  hblock2.noise_proj2.style_block.0.bias  |     6      |
-|            noise_proj.weight             |    3072    |
-|             noise_proj.bias              |    512     |
-|     noise_proj.style_block.0.weight      |     6      |
-|      noise_proj.style_block.0.bias       |     6      |
-+------------------------------------------+------------+
+
+New model info
++------------------------------------------+------------+---------------------------------+
+|                  Names                   | Parameters |              Shape              |
++------------------------------------------+------------+---------------------------------+
+|            convblock0.weight             |    3072    |  torch.Size([512, 6, 1, 1, 1])  |
+|             convblock0.bias              |    512     |        torch.Size([512])        |
+|     convblock0.style_block.0.weight      |     6      |        torch.Size([6, 1])       |
+|      convblock0.style_block.0.bias       |     6      |         torch.Size([6])         |
+|               addnoise.std               |    512     |        torch.Size([512])        |
+|           hblock0.conv1.weight           |  3538944   | torch.Size([256, 512, 3, 3, 3]) |
+|            hblock0.conv1.bias            |    256     |        torch.Size([256])        |
+|    hblock0.conv1.style_block.0.weight    |    512     |       torch.Size([512, 1])      |
+|     hblock0.conv1.style_block.0.bias     |    512     |        torch.Size([512])        |
+|          hblock0.addnoise1.std           |    256     |        torch.Size([256])        |
+|           hblock0.conv2.weight           |  1769472   | torch.Size([256, 256, 3, 3, 3]) |
+|            hblock0.conv2.bias            |    256     |        torch.Size([256])        |
+|    hblock0.conv2.style_block.0.weight    |    256     |       torch.Size([256, 1])      |
+|     hblock0.conv2.style_block.0.bias     |    256     |        torch.Size([256])        |
+|          hblock0.addnoise2.std           |    256     |        torch.Size([256])        |
+|           hblock0.proj.weight            |    1536    |  torch.Size([6, 256, 1, 1, 1])  |
+|            hblock0.proj.bias             |     6      |         torch.Size([6])         |
+|    hblock0.proj.style_block.0.weight     |    256     |       torch.Size([256, 1])      |
+|     hblock0.proj.style_block.0.bias      |    256     |        torch.Size([256])        |
+|        hblock0.noise_proj1.weight        |    1536    |  torch.Size([256, 6, 1, 1, 1])  |
+|         hblock0.noise_proj1.bias         |    256     |        torch.Size([256])        |
+| hblock0.noise_proj1.style_block.0.weight |     6      |        torch.Size([6, 1])       |
+|  hblock0.noise_proj1.style_block.0.bias  |     6      |         torch.Size([6])         |
+|        hblock0.noise_proj2.weight        |    1536    |  torch.Size([256, 6, 1, 1, 1])  |
+|         hblock0.noise_proj2.bias         |    256     |        torch.Size([256])        |
+| hblock0.noise_proj2.style_block.0.weight |     6      |        torch.Size([6, 1])       |
+|  hblock0.noise_proj2.style_block.0.bias  |     6      |         torch.Size([6])         |
+|           hblock1.conv1.weight           |   884736   | torch.Size([128, 256, 3, 3, 3]) |
+|            hblock1.conv1.bias            |    128     |        torch.Size([128])        |
+|    hblock1.conv1.style_block.0.weight    |    256     |       torch.Size([256, 1])      |
+|     hblock1.conv1.style_block.0.bias     |    256     |        torch.Size([256])        |
+|          hblock1.addnoise1.std           |    128     |        torch.Size([128])        |
+|           hblock1.conv2.weight           |   442368   | torch.Size([128, 128, 3, 3, 3]) |
+|            hblock1.conv2.bias            |    128     |        torch.Size([128])        |
+|    hblock1.conv2.style_block.0.weight    |    128     |       torch.Size([128, 1])      |
+|     hblock1.conv2.style_block.0.bias     |    128     |        torch.Size([128])        |
+|          hblock1.addnoise2.std           |    128     |        torch.Size([128])        |
+|           hblock1.proj.weight            |    768     |  torch.Size([6, 128, 1, 1, 1])  |
+|            hblock1.proj.bias             |     6      |         torch.Size([6])         |
+|    hblock1.proj.style_block.0.weight     |    128     |       torch.Size([128, 1])      |
+|     hblock1.proj.style_block.0.bias      |    128     |        torch.Size([128])        |
+|        hblock1.noise_proj1.weight        |    768     |  torch.Size([128, 6, 1, 1, 1])  |
+|         hblock1.noise_proj1.bias         |    128     |        torch.Size([128])        |
+| hblock1.noise_proj1.style_block.0.weight |     6      |        torch.Size([6, 1])       |
+|  hblock1.noise_proj1.style_block.0.bias  |     6      |         torch.Size([6])         |
+|        hblock1.noise_proj2.weight        |    768     |  torch.Size([128, 6, 1, 1, 1])  |
+|         hblock1.noise_proj2.bias         |    128     |        torch.Size([128])        |
+| hblock1.noise_proj2.style_block.0.weight |     6      |        torch.Size([6, 1])       |
+|  hblock1.noise_proj2.style_block.0.bias  |     6      |         torch.Size([6])         |
+|           hblock2.conv1.weight           |   221184   |  torch.Size([64, 128, 3, 3, 3]) |
+|            hblock2.conv1.bias            |     64     |         torch.Size([64])        |
+|    hblock2.conv1.style_block.0.weight    |    128     |       torch.Size([128, 1])      |
+|     hblock2.conv1.style_block.0.bias     |    128     |        torch.Size([128])        |
+|          hblock2.addnoise1.std           |     64     |         torch.Size([64])        |
+|           hblock2.conv2.weight           |   110592   |  torch.Size([64, 64, 3, 3, 3])  |
+|            hblock2.conv2.bias            |     64     |         torch.Size([64])        |
+|    hblock2.conv2.style_block.0.weight    |     64     |       torch.Size([64, 1])       |
+|     hblock2.conv2.style_block.0.bias     |     64     |         torch.Size([64])        |
+|          hblock2.addnoise2.std           |     64     |         torch.Size([64])        |
+|           hblock2.proj.weight            |    384     |   torch.Size([6, 64, 1, 1, 1])  |
+|            hblock2.proj.bias             |     6      |         torch.Size([6])         |
+|    hblock2.proj.style_block.0.weight     |     64     |       torch.Size([64, 1])       |
+|     hblock2.proj.style_block.0.bias      |     64     |         torch.Size([64])        |
+|        hblock2.noise_proj1.weight        |    384     |   torch.Size([64, 6, 1, 1, 1])  |
+|         hblock2.noise_proj1.bias         |     64     |         torch.Size([64])        |
+| hblock2.noise_proj1.style_block.0.weight |     6      |        torch.Size([6, 1])       |
+|  hblock2.noise_proj1.style_block.0.bias  |     6      |         torch.Size([6])         |
+|        hblock2.noise_proj2.weight        |    384     |   torch.Size([64, 6, 1, 1, 1])  |
+|         hblock2.noise_proj2.bias         |     64     |         torch.Size([64])        |
+| hblock2.noise_proj2.style_block.0.weight |     6      |        torch.Size([6, 1])       |
+|  hblock2.noise_proj2.style_block.0.bias  |     6      |         torch.Size([6])         |
+|            noise_proj.weight             |    3072    |  torch.Size([512, 6, 1, 1, 1])  |
+|             noise_proj.bias              |    512     |        torch.Size([512])        |
+|     noise_proj.style_block.0.weight      |     6      |        torch.Size([6, 1])       |
+|      noise_proj.style_block.0.bias       |     6      |         torch.Size([6])         |
++------------------------------------------+------------+---------------------------------+
 Total Trainable Params: 6989426
 
-
-
-==========================================================================================
-Layer (type:depth-idx)                   Output Shape              Param #
-==========================================================================================
-Generator                                --                        --
-├─ConvStyled3d: 1-1                      [1, 512, 22, 22, 22]      --
-│    └─Sequential: 2-1                   [1, 6]                    --
-│    │    └─Linear: 3-1                  [1, 6]                    12
-├─LeakyReLUStyled: 1-2                   [1, 512, 22, 22, 22]      --
-├─ConvStyled3d: 1-3                      [1, 512, 22, 22, 22]      --
-│    └─Sequential: 2-2                   [1, 6]                    --
-│    │    └─Linear: 3-2                  [1, 6]                    12
-├─AddNoise: 1-4                          [1, 512, 22, 22, 22]      512
-├─HBlock: 1-5                            [1, 256, 38, 38, 38]      --
-│    └─Resampler: 2-3                    [1, 512, 42, 42, 42]      --
-│    └─ConvStyled3d: 2-4                 [1, 256, 40, 40, 40]      --
-│    │    └─Sequential: 3-3              [1, 512]                  1,024
-│    └─LeakyReLUStyled: 2-5              [1, 256, 40, 40, 40]      --
-│    └─ConvStyled3d: 2-6                 [1, 256, 40, 40, 40]      --
-│    │    └─Sequential: 3-4              [1, 6]                    12
-│    └─AddNoise: 2-7                     [1, 256, 40, 40, 40]      256
-│    └─ConvStyled3d: 2-8                 [1, 256, 38, 38, 38]      --
-│    │    └─Sequential: 3-5              [1, 256]                  512
-│    └─LeakyReLUStyled: 2-9              [1, 256, 38, 38, 38]      --
-│    └─ConvStyled3d: 2-10                [1, 256, 38, 38, 38]      --
-│    │    └─Sequential: 3-6              [1, 6]                    12
-│    └─AddNoise: 2-11                    [1, 256, 38, 38, 38]      256
-│    └─Resampler: 2-12                   [1, 6, 42, 42, 42]        --
-│    └─ConvStyled3d: 2-13                [1, 6, 38, 38, 38]        --
-│    │    └─Sequential: 3-7              [1, 256]                  512
-│    └─LeakyReLUStyled: 2-14             [1, 6, 38, 38, 38]        --
-├─HBlock: 1-6                            [1, 128, 70, 70, 70]      --
-│    └─Resampler: 2-15                   [1, 256, 74, 74, 74]      --
-│    └─ConvStyled3d: 2-16                [1, 128, 72, 72, 72]      --
-│    │    └─Sequential: 3-8              [1, 256]                  512
-│    └─LeakyReLUStyled: 2-17             [1, 128, 72, 72, 72]      --
-│    └─ConvStyled3d: 2-18                [1, 128, 72, 72, 72]      --
-│    │    └─Sequential: 3-9              [1, 6]                    12
-│    └─AddNoise: 2-19                    [1, 128, 72, 72, 72]      128
-│    └─ConvStyled3d: 2-20                [1, 128, 70, 70, 70]      --
-│    │    └─Sequential: 3-10             [1, 128]                  256
-│    └─LeakyReLUStyled: 2-21             [1, 128, 70, 70, 70]      --
-│    └─ConvStyled3d: 2-22                [1, 128, 70, 70, 70]      --
-│    │    └─Sequential: 3-11             [1, 6]                    12
-│    └─AddNoise: 2-23                    [1, 128, 70, 70, 70]      128
-│    └─Resampler: 2-24                   [1, 6, 74, 74, 74]        --
-│    └─ConvStyled3d: 2-25                [1, 6, 70, 70, 70]        --
-│    │    └─Sequential: 3-12             [1, 128]                  256
-│    └─LeakyReLUStyled: 2-26             [1, 6, 70, 70, 70]        --
-├─HBlock: 1-7                            [1, 64, 134, 134, 134]    --
-│    └─Resampler: 2-27                   [1, 128, 138, 138, 138]   --
-│    └─ConvStyled3d: 2-28                [1, 64, 136, 136, 136]    --
-│    │    └─Sequential: 3-13             [1, 128]                  256
-│    └─LeakyReLUStyled: 2-29             [1, 64, 136, 136, 136]    --
-│    └─ConvStyled3d: 2-30                [1, 64, 136, 136, 136]    --
-│    │    └─Sequential: 3-14             [1, 6]                    12
-│    └─AddNoise: 2-31                    [1, 64, 136, 136, 136]    64
-│    └─ConvStyled3d: 2-32                [1, 64, 134, 134, 134]    --
-│    │    └─Sequential: 3-15             [1, 64]                   128
-│    └─LeakyReLUStyled: 2-33             [1, 64, 134, 134, 134]    --
-│    └─ConvStyled3d: 2-34                [1, 64, 134, 134, 134]    --
-│    │    └─Sequential: 3-16             [1, 6]                    12
-│    └─AddNoise: 2-35                    [1, 64, 134, 134, 134]    64
-│    └─Resampler: 2-36                   [1, 6, 138, 138, 138]     --
-│    └─ConvStyled3d: 2-37                [1, 6, 134, 134, 134]     --
-│    │    └─Sequential: 3-17             [1, 64]                   128
-│    └─LeakyReLUStyled: 2-38             [1, 6, 134, 134, 134]     --
-==========================================================================================
-Total params: 5,088
-Trainable params: 5,088
-Non-trainable params: 0
-Total mult-adds (M): 0.00
-==========================================================================================
-Input size (MB): 138.67
-Forward/backward pass size (MB): 3540.36
-Params size (MB): 0.02
-Estimated Total Size (MB): 3679.05
-==========================================================================================
++---------------------------------------+------------+---------------------------------+
+|                 Names                 | Parameters |              Shape              |
++---------------------------------------+------------+---------------------------------+
+|            block0.0.weight            |    3072    |  torch.Size([512, 6, 1, 1, 1])  |
+|             block0.0.bias             |    512     |        torch.Size([512])        |
+|     block0.0.style_block.0.weight     |     6      |        torch.Size([6, 1])       |
+|      block0.0.style_block.0.bias      |     6      |         torch.Size([6])         |
+|     blocks.0.noise_upsample.0.std     |    512     |        torch.Size([512])        |
+|         blocks.0.conv.0.weight        |  3538944   | torch.Size([256, 512, 3, 3, 3]) |
+|          blocks.0.conv.0.bias         |    256     |        torch.Size([256])        |
+|  blocks.0.conv.0.style_block.0.weight |    512     |       torch.Size([512, 1])      |
+|   blocks.0.conv.0.style_block.0.bias  |    512     |        torch.Size([512])        |
+|         blocks.0.addnoise.std         |    256     |        torch.Size([256])        |
+|        blocks.0.conv1.0.weight        |  1769472   | torch.Size([256, 256, 3, 3, 3]) |
+|         blocks.0.conv1.0.bias         |    256     |        torch.Size([256])        |
+| blocks.0.conv1.0.style_block.0.weight |    256     |       torch.Size([256, 1])      |
+|  blocks.0.conv1.0.style_block.0.bias  |    256     |        torch.Size([256])        |
+|         blocks.0.proj.0.weight        |    1536    |  torch.Size([6, 256, 1, 1, 1])  |
+|          blocks.0.proj.0.bias         |     6      |         torch.Size([6])         |
+|  blocks.0.proj.0.style_block.0.weight |    256     |       torch.Size([256, 1])      |
+|   blocks.0.proj.0.style_block.0.bias  |    256     |        torch.Size([256])        |
+|     blocks.1.noise_upsample.0.std     |    256     |        torch.Size([256])        |
+|         blocks.1.conv.0.weight        |   884736   | torch.Size([128, 256, 3, 3, 3]) |
+|          blocks.1.conv.0.bias         |    128     |        torch.Size([128])        |
+|  blocks.1.conv.0.style_block.0.weight |    256     |       torch.Size([256, 1])      |
+|   blocks.1.conv.0.style_block.0.bias  |    256     |        torch.Size([256])        |
+|         blocks.1.addnoise.std         |    128     |        torch.Size([128])        |
+|        blocks.1.conv1.0.weight        |   442368   | torch.Size([128, 128, 3, 3, 3]) |
+|         blocks.1.conv1.0.bias         |    128     |        torch.Size([128])        |
+| blocks.1.conv1.0.style_block.0.weight |    128     |       torch.Size([128, 1])      |
+|  blocks.1.conv1.0.style_block.0.bias  |    128     |        torch.Size([128])        |
+|         blocks.1.proj.0.weight        |    768     |  torch.Size([6, 128, 1, 1, 1])  |
+|          blocks.1.proj.0.bias         |     6      |         torch.Size([6])         |
+|  blocks.1.proj.0.style_block.0.weight |    128     |       torch.Size([128, 1])      |
+|   blocks.1.proj.0.style_block.0.bias  |    128     |        torch.Size([128])        |
+|     blocks.2.noise_upsample.0.std     |    128     |        torch.Size([128])        |
+|         blocks.2.conv.0.weight        |   221184   |  torch.Size([64, 128, 3, 3, 3]) |
+|          blocks.2.conv.0.bias         |     64     |         torch.Size([64])        |
+|  blocks.2.conv.0.style_block.0.weight |    128     |       torch.Size([128, 1])      |
+|   blocks.2.conv.0.style_block.0.bias  |    128     |        torch.Size([128])        |
+|         blocks.2.addnoise.std         |     64     |         torch.Size([64])        |
+|        blocks.2.conv1.0.weight        |   110592   |  torch.Size([64, 64, 3, 3, 3])  |
+|         blocks.2.conv1.0.bias         |     64     |         torch.Size([64])        |
+| blocks.2.conv1.0.style_block.0.weight |     64     |       torch.Size([64, 1])       |
+|  blocks.2.conv1.0.style_block.0.bias  |     64     |         torch.Size([64])        |
+|         blocks.2.proj.0.weight        |    384     |   torch.Size([6, 64, 1, 1, 1])  |
+|          blocks.2.proj.0.bias         |     6      |         torch.Size([6])         |
+|  blocks.2.proj.0.style_block.0.weight |     64     |       torch.Size([64, 1])       |
+|   blocks.2.proj.0.style_block.0.bias  |     64     |         torch.Size([64])        |
++---------------------------------------+------------+---------------------------------+
+Total Trainable Params: 6979422

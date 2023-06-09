@@ -89,7 +89,7 @@ class Generator(nn.Module):
             return c
         
 
-        self.block0 = ConvStyled3d(in_chan, chan(0), self.style_size, 1)
+        self.convblock0 = ConvStyled3d(in_chan, chan(0), self.style_size, 1)
         self.act = LeakyReLUStyled(0.2, True)
         
         self.addnoise = AddNoise(chan=chan(0))
@@ -127,7 +127,7 @@ class Generator(nn.Module):
         noise22 = narrow_by(noise2, 1)
         del noise2
         
-        x = self.block0((x, style))
+        x = self.convblock0((x, style))
         x = self.act(x)
         
         # NOTE this should exist (at least it's in original StyleGAN2 code)
