@@ -188,10 +188,8 @@ def gpu_worker(local_rank, node, args):
             scheduler.load_state_dict(state['scheduler'])
         if 'pretrained_layers' in state:
             pretrained_layers = state['pretrained_layers']
-        else:
-            pretrained_layers = None
-
-        torch.set_rng_state(state['rng'].cpu())  # move rng state back
+        if 'rng' in state:
+            torch.set_rng_state(state['rng'].cpu())  # move rng state back
 
         if rank == 0:
             min_loss = state['min_loss']
@@ -257,14 +255,19 @@ def gpu_worker(local_rank, node, args):
 def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device, args, pretrained_layers=None):
     model.train()
     
-    use_pretrained = pretrained_layers != None
+    use_pretrained = args.freeze_pretrained_layers and pretrained_layers is not None
 
     print(torch.version.cuda, '------ cuda version -------')
+    
     
     rank = dist.get_rank()
     world_size = dist.get_world_size()
     
-    if world_size == 1 and use_pretrained:
+    if use_pretrained and world_size == 1 and rank == 0:
+        print('pretrained layers: {}'.format(pretrained_layers))
+        sys.stdout.flush()
+        
+    if world_size == 1 and use_pretrained and rank == 0:
         for name, param in model.named_parameters():
             if name in pretrained_layers and param.requires_grad:
                 param.requires_grad = False
@@ -330,7 +333,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
         
         epoch_loss[0] += disp_lag_loss.detach()
         epoch_loss[1] += disp_eul_loss.detach()
-        epoch_loss[2] += disp_loss.detach()
+        epoch_loss[2] += torch.log(disp_loss).detach()
         
         # loss for velocity
         vel_lag_out, vel_lag_tgt = output[:, 3:], target[:, 3:]
@@ -365,18 +368,17 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
         epoch_loss[3] += vel_lag_loss.detach()
         epoch_loss[4] += vel_eul_loss.detach()
         epoch_loss[5] += vel_eul2_loss.detach()
-        epoch_loss[6] += vel_loss.detach()
+        epoch_loss[6] += torch.log(vel_loss).detach()
         
         optimizer.zero_grad()
-        torch.log(disp_loss).backward()
-        torch.log(vel_loss).backward()
         
         loss = torch.log(disp_loss) + torch.log(vel_loss)
+        loss.backward()
         epoch_loss[7] += loss.detach()
+        
         optimizer.step()
         
         grad = get_grads(model)
-        
         epoch_loss[8] += mem_used.detach()
         
         
@@ -413,8 +415,15 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
                                     global_step=batch)
                 logger.add_scalar('loss/batch/train/vel/eul2', vel_eul2_loss.item(),
                                     global_step=batch)
-                logger.add_scalar('loss/batch/train/total_loss', loss.item(),
-                                    global_step=batch)
+                logger.add_scalars(
+                    'loss/batch/train/total_loss',
+                    {
+                        'disp': disp_loss.item(),
+                        'vel': vel_loss.item(),
+                        'total': loss.item()
+                    },
+                    global_step=batch
+                )
                 logger.add_scalar('loss/batch/train/max_mem', mem_used.item(),
                                   global_step=batch)
                 
@@ -429,18 +438,24 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
                           global_step=epoch+1)
         logger.add_scalar('loss/epoch/train/disp/eul', epoch_loss[1],
                             global_step=epoch+1)
-        logger.add_scalar('loss/epoch/train/disp', epoch_loss[2],
-                            global_step=epoch+1)
+
         logger.add_scalar('loss/epoch/train/vel/lag', epoch_loss[3],
                             global_step=epoch+1)
         logger.add_scalar('loss/epoch/train/vel/eul', epoch_loss[4],
                             global_step=epoch+1)
         logger.add_scalar('loss/epoch/train/vel/eul2', epoch_loss[5],
                             global_step=epoch+1)
-        logger.add_scalar('loss/epoch/train/vel', epoch_loss[6],
-                            global_step=epoch+1)
-        logger.add_scalar('loss/epoch/train/total_loss', epoch_loss[7],
-                            global_step=epoch+1)
+
+        logger.add_scalars(
+            'loss/epoch/train/total_loss',
+            {
+                'disp': epoch_loss[2],
+                'vel': epoch_loss[6],
+                'total': epoch_loss[7]
+            },
+            global_step=epoch+1
+        )
+
         logger.add_scalar('loss/epoch/train/max_mem', epoch_loss[8],
                             global_step=epoch+1)
         

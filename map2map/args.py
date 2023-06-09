@@ -201,6 +201,8 @@ def add_train_args(parser):
             help='interval (batches) between logging training loss')
     parser.add_argument('--detect-anomaly', action='store_true',
             help='enable anomaly detection for the autograd engine')
+    parser.add_argument('--freeze-pretrained-layers', action='store_true',
+                        help='enable freeze the pretrained layers of the model')
 
 
 def add_test_args(parser):
