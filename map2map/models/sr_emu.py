@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 from functools import partial
 
-from narrow import narrow_by
-from resample import Resampler
-from style import ConvStyled3d
+from .narrow import narrow_by
+from .resample import Resampler
+from .style import ConvStyled3d
 
 class AddNoise(nn.Module):
     """Add custom noise.

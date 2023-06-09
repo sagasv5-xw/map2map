@@ -167,6 +167,7 @@ def gpu_worker(local_rank, node, args):
             model.apply(init_weights)
 
         start_epoch = 0
+        pretrained_layers = None
 
         if rank == 0:
             min_loss = None
@@ -187,6 +188,8 @@ def gpu_worker(local_rank, node, args):
             scheduler.load_state_dict(state['scheduler'])
         if 'pretrained_layers' in state:
             pretrained_layers = state['pretrained_layers']
+        else:
+            pretrained_layers = None
 
         torch.set_rng_state(state['rng'].cpu())  # move rng state back
 
@@ -254,7 +257,7 @@ def gpu_worker(local_rank, node, args):
 def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device, args, pretrained_layers=None):
     model.train()
     
-    use_pretrained = pretrained_layers is not None
+    use_pretrained = pretrained_layers != None
 
     print(torch.version.cuda, '------ cuda version -------')
     
@@ -274,14 +277,11 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
         
         batch = epoch * len(loader) + i + 1
         
-        def bytes2gb(bytes):
-            gb = bytes / 1024 / 1024 / 1024
-            return '{:.2f} GB'.format(gb)
+        def bytes2gb(bytes_num):
+            return bytes_num / 1024 / 1024 / 1024
         
-        mem_used = bytes2gb(torch.cuda.max_memory_allocated())
         
-        if batch % 1000 == 0 and rank == 0:
-            print(bytes2gb(torch.cuda.max_memory_allocated()))
+        mem_used = torch.tensor(bytes2gb(torch.cuda.max_memory_allocated()))
 
         input, target, style = data['input'], data['target'], data['style']
         early_noise, noise0, noise1, noise2 = data['early_noise'], data['noise0'], data['noise1'], data['noise2']

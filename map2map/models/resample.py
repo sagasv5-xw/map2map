@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-from narrow import narrow_by
+from .narrow import narrow_by
 
 
 def resample(x, scale_factor, narrow=True):
