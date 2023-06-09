@@ -368,9 +368,11 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
         epoch_loss[6] += vel_loss.detach()
         
         optimizer.zero_grad()
+        torch.log(disp_loss).backward()
+        torch.log(vel_loss).backward()
+        
         loss = torch.log(disp_loss) + torch.log(vel_loss)
         epoch_loss[7] += loss.detach()
-        loss.backward()
         optimizer.step()
         
         grad = get_grads(model)
