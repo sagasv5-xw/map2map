@@ -281,7 +281,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
             return bytes_num / 1024 / 1024 / 1024
         
         
-        mem_used = torch.tensor(bytes2gb(torch.cuda.max_memory_allocated()))
+        mem_used = torch.tensor(bytes2gb(torch.cuda.max_memory_allocated())).to(device)
 
         input, target, style = data['input'], data['target'], data['style']
         early_noise, noise0, noise1, noise2 = data['early_noise'], data['noise0'], data['noise1'], data['noise2']
@@ -308,7 +308,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
             print('noise0 shape :', noise0.shape)
             print('noise1 shape :', noise1.shape)
             print('noise2 shape :', noise2.shape)
-            print('#####')
+            
 
         if (hasattr(model.module, 'scale_factor')
                 and model.module.scale_factor != 1):
@@ -316,6 +316,7 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
         input, output, target = narrow_cast(input, output, target)
         if batch <= 5 and rank == 0:
             print('narrowed shape :', output.shape, flush=True)
+            print('#####')
 
         disp_lag_out, disp_lag_tgt = output[:, :3], target[:, :3]
         
@@ -369,11 +370,12 @@ def train(epoch, loader, model, criterion, optimizer, scheduler, logger, device,
         optimizer.zero_grad()
         loss = torch.log(disp_loss) + torch.log(vel_loss)
         epoch_loss[7] += loss.detach()
-        epoch_loss[8] += mem_used
         loss.backward()
         optimizer.step()
         
         grad = get_grads(model)
+        
+        epoch_loss[8] += mem_used.detach()
         
         
         if batch % args.log_interval == 0:
